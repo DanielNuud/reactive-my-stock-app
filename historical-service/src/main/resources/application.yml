@@ -1,0 +1,24 @@
+polygon:
+  api:
+    key: ${POLYGON_API_KEY}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+spring:
+  data:
+    mongodb:
+      database: historical-db
+      host: historical-mongo
+      port: 27017
+server:
+  port: 8080
