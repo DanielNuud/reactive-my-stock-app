@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  company-mongo:
+    image: mongo:6.0
+    container_name: company-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: company-db
+    volumes:
+      - company_mongo_data:/data/db
+    networks:
+      - stocknet
+
+  historical-mongo:
+    image: mongo:6.0
+    container_name: historical-mongo
+    restart: always
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_DATABASE: historical-db
+    volumes:
+      - historical_mongo_data:/data/db
+    networks:
+      - stocknet
+
+  news-mongo:
+    image: mongo:6.0
+    container_name: news-mongo
+    restart: always
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: news-db
+    volumes:
+      - news_mongo_data:/data/db
+    networks:
+      - stocknet
+
+  redis-currency:
+    image: redis:latest
+    container_name: redis-currency
+    restart: always
+    ports:
+      - "6380:6379"
+    networks:
+      - stocknet
+
+  redis-company:
+    image: redis:latest
+    container_name: redis-company
+    restart: always
+    ports:
+      - "6381:6379"
+    networks:
+      - stocknet
+
+  currency-service:
+    build:
+      context: ./currency-service
+    container_name: currency-service
+    ports:
+      - "8084:8080"
+    depends_on:
+      - redis-currency
+    environment:
+      SPRING_REDIS_HOST: redis-currency
+    networks:
+      - stocknet
+
+  news-service:
+    build:
+      context: ./news-service
+    container_name: news-service
+    ports:
+      - "8082:8080"
+    depends_on:
+      - news-mongo
+    environment:
+      SPRING_DATA_MONGODB_HOST: news-mongo
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: news-db
+      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+    networks:
+      - stocknet
+
+  company-info-service:
+    build:
+      context: ./company-info-service
+    container_name: company-info-service
+    ports:
+      - "8081:8080"
+    depends_on:
+      - company-mongo
+      - redis-company
+    environment:
+      SPRING_DATA_MONGODB_HOST: company-mongo
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: company-db
+      SPRING_REDIS_HOST: redis-company
+      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+    networks:
+      - stocknet
+
+  historical-service:
+    build:
+      context: ./historical-service
+    container_name: historical-service
+    ports:
+      - "8083:8080"
+    depends_on:
+      - historical-mongo
+    environment:
+      SPRING_DATA_MONGODB_HOST: historical-mongo
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: historical-db
+      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+    networks:
+      - stocknet
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - company-info-service
+    networks:
+      - stocknet
+
+volumes:
+  news_mongo_data:
+  company_mongo_data:
+  historical_mongo_data:
+
+networks:
+  stocknet:
+    driver: bridge
