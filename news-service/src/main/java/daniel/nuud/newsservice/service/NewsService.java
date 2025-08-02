@@ -76,4 +76,7 @@ public class NewsService {
                 .then();
     }
 
+    public Flux<Article> getTop5News(String ticker) {
+        return newsRepository.findTop5ByTickersOrderByPublishedUtcDesc(ticker);
+    }
 }

@@ -16,3 +16,12 @@ management:
 polygon:
   api:
     key: ${POLYGON_API_KEY}
+
+spring:
+  data:
+    mongodb:
+      database: news-db
+      host: news-mongo
+      port: 27017
+server:
+  port: 8080

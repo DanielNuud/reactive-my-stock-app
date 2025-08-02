@@ -11,5 +11,5 @@ import java.util.Optional;
 @Repository
 public interface NewsRepository extends ReactiveMongoRepository<Article, String> {
     Optional<Flux<Article>> findAllByTickersContaining(String ticker);
-    Flux<Article> findTop5ByTickersOrderByPublishedUtcDesc(List<String> tickers);
+    Flux<Article> findTop5ByTickersOrderByPublishedUtcDesc(String ticker);
 }
