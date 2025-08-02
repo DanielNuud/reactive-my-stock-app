@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: company-service
+              uri: http://company-info-service:8080
+              predicates:
+                - Path=/api/companies/**
+
+            - id: news-service
+              uri: http://news-service:8080
+              predicates:
+                - Path=/api/news/**
+
+            - id: historical-service
+              uri: http://historical-service:8080
+              predicates:
+                - Path=/api/historical/**
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
