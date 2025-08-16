@@ -25,3 +25,43 @@ spring:
       port: 27017
 server:
   port: 8080
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      polygonNewsCB:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 30
+        minimum-number-of-calls: 10
+        slow-call-duration-threshold: 1s
+        slow-call-rate-threshold: 60
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        record-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.util.concurrent.TimeoutException
+          - io.netty.channel.ConnectTimeoutException
+          - reactor.netty.http.client.PrematureCloseException
+
+  retry:
+    instances:
+      newsReadSafe:
+        max-attempts: 3
+        wait-duration: 100ms
+        enable-exponential-backoff: true
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+          - java.util.concurrent.TimeoutException
+          - io.netty.channel.ConnectTimeoutException
+          - reactor.netty.http.client.PrematureCloseException
+
+  bulkhead:
+    instances:
+      newsRead:
+        max-concurrent-calls: 32
+        max-wait-duration: 0ms
+      newsWrite:
+        max-concurrent-calls: 4
+        max-wait-duration: 0ms

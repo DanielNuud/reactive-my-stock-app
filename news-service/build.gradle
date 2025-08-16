@@ -36,6 +36,11 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation "io.github.resilience4j:resilience4j-spring-boot3:"
+    implementation "org.springframework.boot:spring-boot-starter-actuator"
+    implementation "org.springframework.boot:spring-boot-starter-aop"
+    implementation "io.github.resilience4j:resilience4j-reactor"
+    implementation "io.github.resilience4j:resilience4j-bom:2.2.0"
 }
 
 tasks.named('test') {
