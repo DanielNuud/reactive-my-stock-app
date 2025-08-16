@@ -12,7 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Ticker {
+public class TickerEntity {
     @Id
     private String ticker;
 

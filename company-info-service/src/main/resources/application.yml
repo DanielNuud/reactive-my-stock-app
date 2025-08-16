@@ -22,5 +22,59 @@ spring:
       database: company-db
       host: company-mongo
       port: 27017
+  cache:
+    type: redis
+    cache-names: companyByTicker,tickerSuggest
+    redis:
+      time-to-live: 1h
+      use-key-prefix: true
+      key-prefix: "cis:"
+      cache-null-values: false
 server:
   port: 8080
+
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      polygonCompanyCB:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 30
+        minimum-number-of-calls: 10
+        slow-call-duration-threshold: 1s
+        slow-call-rate-threshold: 60
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        record-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.util.concurrent.TimeoutException
+          - io.netty.channel.ConnectTimeoutException
+          - reactor.netty.http.client.PrematureCloseException
+          - java.lang.IllegalStateException
+        ignore-exceptions:
+
+  retry:
+    instances:
+      readSafe:
+        max-attempts: 3
+        wait-duration: 100ms
+        enable-exponential-backoff: true
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientRequestException
+          - java.util.concurrent.TimeoutException
+          - io.netty.channel.ConnectTimeoutException
+          - reactor.netty.http.client.PrematureCloseException
+          - java.lang.IllegalStateException
+        ignore-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+
+  bulkhead:
+    instances:
+      companyRead:
+        max-concurrent-calls: 16
+        max-wait-duration: 0ms
+      companyWrite:
+        max-concurrent-calls: 4
+        max-wait-duration: 0ms

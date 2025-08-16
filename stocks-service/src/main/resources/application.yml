@@ -1,0 +1,21 @@
+polygon:
+  api:
+    key: ${POLYGON_API_KEY:dummy_key_for_tests}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+server:
+  port: 8080
+  address: 0.0.0.0

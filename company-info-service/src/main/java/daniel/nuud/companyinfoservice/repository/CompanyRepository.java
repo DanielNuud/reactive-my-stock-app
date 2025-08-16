@@ -8,4 +8,5 @@ import reactor.core.publisher.Mono;
 @Repository
 public interface CompanyRepository extends ReactiveMongoRepository<Company, String> {
     Mono<Company> findByTickerIgnoreCase(String ticker);
+    Mono<Boolean> existsByTickerIgnoreCase(String ticker);
 }
