@@ -26,6 +26,11 @@ spring:
               uri: http://historical-service:8080
               predicates:
                 - Path=/api/historical/**
+
+            - id: notification-service
+              uri: http://notification-service:8080
+              predicates:
+                - Path=/api/notifications/**
 management:
   endpoints:
     web:

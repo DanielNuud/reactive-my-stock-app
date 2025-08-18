@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --overprovisioned
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --node-id 0
+      - --check=false
+      - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr redpanda:9092
+    ports:
+      - "9092:9092"   # нужен, если хочешь подключаться с хоста
+    networks:
+      - stocknet
+
   company-mongo:
     image: mongo:6.0
     container_name: company-mongo
@@ -40,6 +59,19 @@ services:
     networks:
       - stocknet
 
+  notifications-mongo:
+    image: mongo:6.0
+    container_name: notifications-mongo
+    restart: always
+    ports:
+      - "27020:27017"
+    environment:
+      MONGO_INITDB_DATABASE: notifications_db
+    volumes:
+      - notifications_mongo_data:/data/db
+    networks:
+      - stocknet
+
   redis-currency:
     image: redis:latest
     container_name: redis-currency
@@ -58,34 +90,34 @@ services:
     networks:
       - stocknet
 
-  currency-service:
-    build:
-      context: ./currency-service
-    container_name: currency-service
-    ports:
-      - "8084:8080"
-    depends_on:
-      - redis-currency
-    environment:
-      SPRING_REDIS_HOST: redis-currency
-    networks:
-      - stocknet
+#  currency-service:
+#    build:
+#      context: ./currency-service
+#    container_name: currency-service
+#    ports:
+#      - "8084:8080"
+#    depends_on:
+#      - redis-currency
+#    environment:
+#      SPRING_REDIS_HOST: redis-currency
+#    networks:
+#      - stocknet
 
-  news-service:
-    build:
-      context: ./news-service
-    container_name: news-service
-    ports:
-      - "8082:8080"
-    depends_on:
-      - news-mongo
-    environment:
-      SPRING_DATA_MONGODB_HOST: news-mongo
-      SPRING_DATA_MONGODB_PORT: 27017
-      SPRING_DATA_MONGODB_DATABASE: news-db
-      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
-    networks:
-      - stocknet
+#  news-service:
+#    build:
+#      context: ./news-service
+#    container_name: news-service
+#    ports:
+#      - "8082:8080"
+#    depends_on:
+#      - news-mongo
+#    environment:
+#      SPRING_DATA_MONGODB_HOST: news-mongo
+#      SPRING_DATA_MONGODB_PORT: 27017
+#      SPRING_DATA_MONGODB_DATABASE: news-db
+#      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+#    networks:
+#      - stocknet
 
   company-info-service:
     build:
@@ -105,19 +137,36 @@ services:
     networks:
       - stocknet
 
-  historical-service:
+#  historical-service:
+#    build:
+#      context: ./historical-service
+#    container_name: historical-service
+#    ports:
+#      - "8083:8080"
+#    depends_on:
+#      - historical-mongo
+#    environment:
+#      SPRING_DATA_MONGODB_HOST: historical-mongo
+#      SPRING_DATA_MONGODB_PORT: 27017
+#      SPRING_DATA_MONGODB_DATABASE: historical-db
+#      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+#    networks:
+#      - stocknet
+
+  notification-service:
     build:
-      context: ./historical-service
-    container_name: historical-service
+      context: ./notification-service
+    container_name: notification-service
     ports:
-      - "8083:8080"
+      - "8084:8080"
     depends_on:
-      - historical-mongo
+      - notifications-mongo
+      - redpanda
     environment:
-      SPRING_DATA_MONGODB_HOST: historical-mongo
+      SPRING_DATA_MONGODB_HOST: notifications-mongo
       SPRING_DATA_MONGODB_PORT: 27017
-      SPRING_DATA_MONGODB_DATABASE: historical-db
-      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+      SPRING_DATA_MONGODB_DATABASE: notifications_db
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
     networks:
       - stocknet
 
@@ -135,6 +184,7 @@ volumes:
   news_mongo_data:
   company_mongo_data:
   historical_mongo_data:
+  notifications_mongo_data:
 
 networks:
   stocknet:
