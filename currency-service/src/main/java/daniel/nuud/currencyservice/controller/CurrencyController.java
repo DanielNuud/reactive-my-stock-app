@@ -14,13 +14,11 @@ public class CurrencyController {
 
     private final CurrencyService currencyService;
 
-    @GetMapping("/{currency}")
-    public Mono<Map<String, String>> getCurrency(@PathVariable("currency") String currency) {
-        return currencyService.getCurrencyRates(currency.toUpperCase());
-    }
-
     @GetMapping("/convert")
-    public Mono<Double> getCurrencyConvert(@RequestParam String from, @RequestParam String to, @RequestParam Double amount) {
-        return currencyService.convert(from, to, amount);
+    public Mono<Double> getCurrencyConvert(@RequestParam String from,
+                                           @RequestParam String to,
+                                           @RequestParam Double amount,
+                                           @RequestHeader(value = "X-User-Key", defaultValue = "guest") String userKey) {
+        return currencyService.convert(from, to, amount, userKey);
     }
 }

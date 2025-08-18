@@ -1,13 +1,22 @@
 freecurrency:
   api:
     key: fca_live_hs0yPrOObSsKEWaBJoMXsAeK398j4L9L5pl84AY1
+
 server:
   port: 8080
   address: 0.0.0.0
+
 spring:
+  application:
+    name: currency-service
   data:
     redis:
       host: redis-currency
       port: 6379
   cache:
     type: redis
+
+kafka:
+  bootstrapServers: redpanda:9092
+  topics:
+    notifications: notifications.commands

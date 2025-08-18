@@ -31,6 +31,11 @@ spring:
               uri: http://notification-service:8080
               predicates:
                 - Path=/api/notifications/**
+
+            - id: currency-service
+              uri: http://currency-service:8080
+              predicates:
+                - Path=/api/currency/**
 management:
   endpoints:
     web:
