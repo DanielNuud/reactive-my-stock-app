@@ -22,3 +22,53 @@ spring:
       port: 27017
 server:
   port: 8080
+
+logging:
+  level:
+    org.springframework.web.reactive.function.client: TRACE
+    reactor.netty.http.client: DEBUG
+    logging.level.reactor.kafka.sender: DEBUG
+    logging.level.org.apache.kafka.clients.producer: INFO
+
+kafka:
+  bootstrapServers: redpanda:9092
+  topics:
+    notifications: notifications.commands
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      polygonHistCB:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 50
+        minimumNumberOfCalls: 20
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 5s
+        slowCallRateThreshold: 70
+        waitDurationInOpenState: 45s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+  retry:
+    instances:
+      polygonHistRetry:
+        maxAttempts: 2
+        waitDuration: 300ms
+        retryExceptions:
+          - java.io.IOException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignoreExceptions:
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+          - org.springframework.web.client.HttpClientErrorException
+  ratelimiter:
+    instances:
+      polygonHistRL:
+        limitForPeriod: 4
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+  bulkhead:
+    instances:
+      polygonHistBH:
+        maxConcurrentCalls: 12
+        maxWaitDuration: 0
