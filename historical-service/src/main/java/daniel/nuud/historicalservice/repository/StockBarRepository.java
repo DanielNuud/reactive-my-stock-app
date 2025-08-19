@@ -4,7 +4,11 @@ import daniel.nuud.historicalservice.model.StockBar;
 import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Flux;
 
+import java.time.LocalDate;
+
 public interface StockBarRepository extends ReactiveMongoRepository<StockBar, String> {
     Flux<StockBar> findAllByTimestampBetween(Long start, Long end);
     Flux<StockBar> findByTickerAndDateBetween(String ticker, String fromDate, String toDate);
+    Flux<StockBar> findByTickerAndDateBetweenOrderByDateAsc(
+            String ticker, LocalDate from, LocalDate to);
 }
