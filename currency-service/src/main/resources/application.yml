@@ -17,6 +17,6 @@ spring:
     type: redis
 
 kafka:
-  bootstrapServers: redpanda:9092
+  bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
   topics:
     notifications: notifications.commands
