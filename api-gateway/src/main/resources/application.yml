@@ -36,6 +36,16 @@ spring:
               uri: http://currency-service:8080
               predicates:
                 - Path=/api/currency/**
+
+            - id: stocks-service
+              uri: http://stocks-service:8080
+              predicates:
+                - Path=/api/stocks/**
+
+            - id: stocks-service-ws
+              uri: ws://stocks-service:8080
+              predicates:
+                - Path=/ws/stocks/**
 management:
   endpoints:
     web:

@@ -100,6 +100,7 @@ services:
       - redis-currency
     environment:
       SPRING_REDIS_HOST: redis-currency
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
     networks:
       - stocknet
 
@@ -166,6 +167,20 @@ services:
       SPRING_DATA_MONGODB_HOST: notifications-mongo
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_MONGODB_DATABASE: notifications_db
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    networks:
+      - stocknet
+
+  stocks-service:
+    build:
+      context: ./stocks-service
+    container_name: stocks-service
+    ports:
+      - "8086:8080"
+    depends_on:
+      - historical-service
+    environment:
+      POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
     networks:
       - stocknet
