@@ -36,7 +36,13 @@ public class HistoricalService {
     private static final ZoneId ZONE = ZoneOffset.UTC;
 
     private final Map<String, StockPrice> latestPrices = new ConcurrentHashMap<>();
+
     private final LocalDateTime toNow = LocalDateTime.now().with(LocalTime.MAX);
+
+    public void saveRealtimePrice(StockPrice stockPrice) {
+        log.info("Received real-time price: {}", stockPrice);
+        latestPrices.put(stockPrice.getTicker(), stockPrice);
+    }
 
     public Flux<StockBar> getHistoricalStockBar(String rawTicker, String period, String userKey) {
         String ticker = normalize(rawTicker);

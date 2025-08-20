@@ -31,9 +31,11 @@ logging:
     logging.level.org.apache.kafka.clients.producer: INFO
 
 kafka:
-  bootstrapServers: redpanda:9092
+  bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
+  group-id: historical.realtime
   topics:
     notifications: notifications.commands
+    realtime: stock.bars.realtime
 
 resilience4j:
   circuitbreaker:
