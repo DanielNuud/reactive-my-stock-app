@@ -24,7 +24,7 @@ public class PolygonClient {
     @Value("${polygon.api.key}")
     private String apiKey;
 
-    @CircuitBreaker(name = "polygonCompanyCB", fallbackMethod = "fallbackEmptyTickers")
+    @CircuitBreaker(name = "polygonCompanyCB", fallbackMethod = "fallbackEmpty")
     @Retry(name = "readSafe")
     public Mono<ApiResponse> getApiResponse(String ticker) {
         log.info(">>> fetchCompany called for {}", ticker);

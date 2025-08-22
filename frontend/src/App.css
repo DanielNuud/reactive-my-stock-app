@@ -1,0 +1,393 @@
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+.search-page {
+    background-color: #121212;
+    overflow-x: hidden;
+    min-height: 100vh;
+    padding: 0 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+}
+
+.search-page h1,
+.search-page h2,
+.search-page p {
+    color: #ffffff;
+}
+
+
+.search-bar-wrapper {
+    width: 100%;
+    max-width: 600px;
+}
+
+.search-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    color: #ffffff;
+}
+
+.search-subtitle {
+    font-size: 1.1rem;
+    font-weight: 400;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #bbbbbb;
+    max-width: 600px;
+}
+
+.search-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px; 
+    margin: auto;
+}
+
+.search-form {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.search-input {
+    flex: 1;
+    padding: 14px 18px;
+    border-radius: 9999px; 
+    border: none;
+    background-color: #2c2c2c;
+    color: #fff;
+    font-size: 1rem;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    background-color: #333;
+    box-shadow: 0 0 0 3px #3b82f6;
+}
+
+.search-button {
+    margin-left: 10px;
+    padding: 12px 20px;
+    border-radius: 9999px;
+    border: none;
+    background-color: #3b82f6;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.search-button:hover {
+    background-color: #2563eb;
+}
+
+.autocomplete-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 12px;
+    margin-top: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 100;
+    padding: 0;
+    list-style: none;
+    width: 100%; 
+}
+
+.autocomplete-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.autocomplete-item:hover {
+    background: #2a2a2a;
+}
+
+.autocomplete-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+
+body {
+    margin: 0;
+    background-color: #181a1b;
+    color: #d3d3d3;
+    padding: 0;
+    font-family: "Segoe UI", sans-serif;
+}
+
+.company-header {
+    background-color: #212324;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.company-header img {
+    max-height: 50px;
+    object-fit: contain;
+}
+
+.company-header h3 {
+    flex-grow: 1;
+    text-align: center;
+    margin: 0;
+    color: #ffffff;
+}
+
+.badge {
+    font-size: 1rem;
+    padding: 0.5em 0.8em;
+    background-color: #d3d3d3;
+    color: #181a1b;
+    font-weight: 600;
+}
+
+.company-info-card {
+    background-color: #212324;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    height: 100%; 
+}
+
+.info-item i {
+    font-size: 1.4rem;
+    margin-right: 12px;
+    color: #8ab4f8;
+    min-width: 30px;
+    text-align: center;
+}
+
+.info-item span,
+.info-item a {
+    color: #d3d3d3;
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.news-section {
+    background-color: #212324;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.news-section h4 {
+    text-align: center;
+    margin-bottom: 15px;
+    color: #ffffff;
+}
+
+.news-card {
+    background-color: #292b2c;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    transition: background-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.news-card:hover {
+    background-color: #2f3133;
+}
+
+.news-card img.news-image {
+    width: 100%;
+    max-width: 120px;
+    height: auto;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.btn-outline-primary {
+    color: #8ab4f8;
+    border-color: #8ab4f8;
+}
+
+.btn-outline-primary:hover {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+}
+
+@media (min-width: 768px) {
+    .news-card {
+        flex-direction: row;
+    }
+}
+
+.converter-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.currency-select {
+    min-width: max-content;
+    padding: 8px 16px;
+    background-color: #2c2c2c;
+    color: white;
+    border: none;
+    border-radius: 9999px;
+    text-align: center;          
+    appearance: none;
+    font-size: 1rem;
+    line-height: 1.5;           
+    height: 44px;                
+    display: flex;
+    align-items: center;         
+    justify-content: center;     
+}
+
+.amount-input {
+    width: 120px;
+    min-width: 100px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.converter-result {
+    width: 100%;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 1.2rem;
+    color: #ffffff;
+}
+
+.topbar {
+  margin-bottom: 12px;
+}
+
+
+/* Унифицированная темная карточка */
+.panel {
+  background: var(--card-bg, #212324);
+  border: 1px solid var(--card-border, #283041);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Заголовок карточки */
+.panel-title {
+  text-align: center;
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 10px;
+}
+
+/* Значение (крупнее) */
+.panel-value {
+  text-align: center;
+  font-size: 1.25rem;
+  color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Кнопка/селект по центру */
+.panel-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* Мета-текст (время обновления) */
+.panel-meta {
+  text-align: center;
+  color: #ffffff;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+/* Небольшие утилиты */
+.muted { color: #ffffff; }
+
+/* Кнопка и селект под общий стиль (минимально) */
+.btn {
+  border: 1px solid var(--card-border, #283041);
+  background: #2a5bdd;
+  color: #e6eefc;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.btn:hover { background: #202a3a; }
+.btn-sm { padding: 6px 10px; font-size: .9rem; }
+.btn-primary { border-color: #3a7bfd; background: #2a5bdd; }
+.btn-primary:hover { background: #2d63ee; }
+
+.select {
+  width: 100%;
+  max-width: 220px;
+  background: #0f1620;
+  color: #e6eefc;
+  border: 1px solid var(--card-border, #283041);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
