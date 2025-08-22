@@ -45,7 +45,7 @@ spring:
             - id: stocks-service-ws
               uri: ws://stocks-service:8080
               predicates:
-                - Path=/ws/stocks/**
+                - Path=/ws/prices/**
 management:
   endpoints:
     web:
