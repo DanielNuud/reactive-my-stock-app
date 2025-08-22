@@ -28,20 +28,25 @@ public class TickerService {
     public Mono<Boolean> tryRefreshTickers(String rawQuery) {
         final String q = normalize(rawQuery);
 
-        return polygonClient.searchTickers(q)                                   // Mono<TickerApiResponse>
+        return polygonClient.searchTickers(q)
                 .flatMapMany(resp -> Flux.fromIterable(
-                        resp.getResults() == null ? List.of() : resp.getResults())) // Flux<TickerEntity>
-                .map(this::toEntityUpper)                                           // Flux<TickerEntity>
-                .collectList()                                                      // Mono<List<TickerEntity>>
+                        resp.getResults() == null ? List.of() : resp.getResults()))
+                .map(this::toEntityUpper)
+                .collectList()
                 .flatMap(list -> list.isEmpty()
                         ? Mono.just(false)
-                        : tickerRepository.insert(list)                                  // ВАЖНО: insert, не save
-                        .onErrorContinue(DuplicateKeyException.class, (ex, obj) -> {}) // игнор дубликатов
-                        .hasElements()                                               // true, если хоть один реально вставился
+                        : tickerRepository.insert(list)
+                        .onErrorContinue(DuplicateKeyException.class, (ex, obj) -> {})
+                        .hasElements()
                 )
                 .onErrorReturn(false);
     }
 
+    @SuppressWarnings("unused")
+    private Mono<Boolean> skipRefreshReactive(String rawQuery, Throwable ex) {
+        log.warn("Skip refresh for {}: {}", rawQuery, ex.toString());
+        return Mono.just(false);
+    }
 
     private String normalize(String s) {
         return s == null ? "" : s.trim().toUpperCase(Locale.ROOT);
@@ -50,8 +55,8 @@ public class TickerService {
     private TickerEntity toEntityUpper(Ticker dto) {
         return new TickerEntity(
                 dto.getTicker() == null ? "" : dto.getTicker().toUpperCase(Locale.ROOT),
-                dto.getCurrencyName(),
-                dto.getName()
+                dto.getName(),
+                dto.getCurrencyName()
         );
     }
 
