@@ -15,7 +15,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class TickerEntity {
     @Id
     private String ticker;
-
     private String companyName;
     private String currency;
 }

@@ -151,7 +151,7 @@ public class HistoricalService {
     }
 
     private StockBar convertToStockBar(StockPrice p) {
-        long ts = p.getTimestamp(); // ms
+        long ts = p.getTimestamp();
         LocalDateTime dt = LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZONE);
 
         return StockBar.builder()
