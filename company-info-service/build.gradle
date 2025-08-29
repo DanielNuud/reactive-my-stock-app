@@ -27,18 +27,25 @@ repositories {
     mavenCentral()
 }
 
+ext {
+    flywayVersion = '11.10.2'
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+    implementation "org.flywaydb:flyway-core:11.10.2"
+    implementation "org.flywaydb:flyway-database-postgresql:11.10.2"
+    runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'org.postgresql:r2dbc-postgresql'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation "io.github.resilience4j:resilience4j-spring-boot3:"
     implementation "org.springframework.boot:spring-boot-starter-actuator"

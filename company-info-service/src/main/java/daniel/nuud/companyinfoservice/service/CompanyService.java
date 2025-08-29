@@ -8,8 +8,8 @@ import daniel.nuud.companyinfoservice.repository.CompanyRepository;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -20,9 +20,8 @@ import java.util.Locale;
 @Slf4j
 public class CompanyService {
 
-    @Autowired
     private final CompanyRepository companyRepository;
-
+    private final R2dbcEntityTemplate template;
     private final PolygonClient polygonClient;
 
     @SuppressWarnings("unused")
@@ -32,18 +31,41 @@ public class CompanyService {
     }
 
     @Bulkhead(name = "companyWrite", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipRefreshReactive")
-    public Mono<Boolean> tryRefreshCompany(String ticker) {
+    public Mono<Company> tryRefreshCompany(String ticker) {
         final String key = normalize(ticker);
-        return Mono.just(ticker)
-                .filterWhen(t -> companyRepository.existsByTickerIgnoreCase(t).map(exists -> !exists))
-                .flatMap(polygonClient::getApiResponse)
-                .flatMap(resp -> Mono.justOrEmpty(resp.getResults())
-                        .map(r -> mapToCompany(resp, key))
-                        .flatMap(companyRepository::save)
-                        .thenReturn(true)
-                )
-                .defaultIfEmpty(false)
-                .onErrorReturn(false);
+        return polygonClient.getApiResponse(key)
+                .map(resp -> mapToCompany(resp, key))
+                .flatMap(this::upsertCompany)
+                .doOnSuccess(c -> log.info("Upserted company {}", c.getTicker()));
+    }
+
+    private Mono<Company> upsertCompany(Company c) {
+        final String sql = """
+            insert into companies
+              (ticker, description, name, homepage_url, primary_exchange, market_cap,
+               city, address1, icon_url, logo_url, status)
+            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            on conflict (ticker) do update set
+              description=$2, name=$3, homepage_url=$4, primary_exchange=$5, market_cap=$6,
+              city=$7, address1=$8, icon_url=$9, logo_url=$10, status=$11
+            returning ticker, description, name, homepage_url, primary_exchange, market_cap,
+                      city, address1, icon_url, logo_url, status
+            """;
+        return template.getDatabaseClient()
+                .sql(sql)
+                .bind("$1",  c.getTicker())
+                .bind("$2",  c.getDescription())
+                .bind("$3",  c.getName())
+                .bind("$4",  c.getHomepageUrl())
+                .bind("$5",  c.getPrimaryExchange())
+                .bind("$6",  c.getMarketCap())
+                .bind("$7",  c.getCity())
+                .bind("$8",  c.getAddress1())
+                .bind("$9",  c.getIconUrl())
+                .bind("$10", c.getLogoUrl())
+                .bind("$11", c.getStatus())
+                .map((row, meta) -> template.getConverter().read(Company.class, row, meta))
+                .one();
     }
 
     @Cacheable(value = "tickerSuggest", key = "#ticker", sync = true)

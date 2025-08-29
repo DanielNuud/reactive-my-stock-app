@@ -1,6 +1,5 @@
 package daniel.nuud.companyinfoservice.service;
 
-import com.mongodb.DuplicateKeyException;
 import daniel.nuud.companyinfoservice.dto.Ticker;
 import daniel.nuud.companyinfoservice.exception.ResourceNotFoundException;
 import daniel.nuud.companyinfoservice.model.TickerEntity;
@@ -9,6 +8,7 @@ import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,23 +23,47 @@ public class TickerService {
 
     private final TickerRepository tickerRepository;
     private final PolygonClient polygonClient;
+    private final R2dbcEntityTemplate r2dbcEntityTemplate;
 
     @Bulkhead(name = "companyWrite", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipRefreshReactive")
     public Mono<Boolean> tryRefreshTickers(String rawQuery) {
         final String q = normalize(rawQuery);
 
         return polygonClient.searchTickers(q)
-                .flatMapMany(resp -> Flux.fromIterable(
-                        resp.getResults() == null ? List.of() : resp.getResults()))
+                .flatMapMany(resp -> Flux.fromIterable(resp.getResults() == null ? java.util.List.of() : resp.getResults()))
                 .map(this::toEntityUpper)
-                .collectList()
-                .flatMap(list -> list.isEmpty()
-                        ? Mono.just(false)
-                        : tickerRepository.insert(list)
-                        .onErrorContinue(DuplicateKeyException.class, (ex, obj) -> {})
-                        .hasElements()
-                )
+                .buffer(100)
+                .concatMap(batch -> Flux.fromIterable(batch).flatMap(this::upsertTicker, 8))
+                .hasElements()
                 .onErrorReturn(false);
+    }
+
+    @Cacheable(value = "tickerSuggest", key = "#rawQuery", sync = true)
+    @Bulkhead(name = "companyRead", type = Bulkhead.Type.SEMAPHORE)
+    public Mono<List<TickerEntity>> getFromDB(String rawQuery) {
+        final String q = normalize(rawQuery);
+        return tickerRepository.findTop5ByTickerStartsWithIgnoreCase(q)
+                .collectList()
+                .filter(list -> !list.isEmpty())
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("TickerEntity with " + rawQuery + " not found")));
+    }
+
+    private Mono<TickerEntity> upsertTicker(TickerEntity t) {
+        final String sql = """
+            insert into tickers (ticker, company_name, currency)
+            values ($1,$2,$3)
+            on conflict (ticker) do update set
+              company_name = excluded.company_name,
+              currency     = excluded.currency
+            returning ticker, company_name, currency
+            """;
+        return r2dbcEntityTemplate.getDatabaseClient()
+                .sql(sql)
+                .bind("$1", t.getTicker())
+                .bind("$2", t.getCompanyName())
+                .bind("$3", t.getCurrency())
+                .map((row, md) -> r2dbcEntityTemplate.getConverter().read(TickerEntity.class, row, md))
+                .one();
     }
 
     @SuppressWarnings("unused")
@@ -60,13 +84,4 @@ public class TickerService {
         );
     }
 
-    @Cacheable(value = "tickerSuggest", key = "#rawQuery", sync = true)
-    @Bulkhead(name = "companyRead", type = Bulkhead.Type.SEMAPHORE)
-    public Mono<List<TickerEntity>> getFromDB(String rawQuery) {
-        final String q = normalize(rawQuery);
-        return tickerRepository.findTop5ByTickerStartsWithIgnoreCase(q)
-                .collectList()
-                .filter(list -> !list.isEmpty())
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("TickerEntity with " + rawQuery + " not found")));
-    }
 }

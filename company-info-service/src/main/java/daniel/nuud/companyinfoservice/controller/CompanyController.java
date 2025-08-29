@@ -22,13 +22,13 @@ public class CompanyController {
     public Mono<ResponseEntity<Company>> getCompany(@PathVariable String ticker) {
         log.info("Received GET /api/companies/{}", ticker);
 
-        return companyService.tryRefreshCompany(ticker)
-                .flatMap(refreshed -> companyService.getFromDB(ticker)
-                        .map(company -> ResponseEntity.ok()
-                                .header("X-Data-Freshness", refreshed ? "fresh" : "stale")
-                                .body(company)))
-                .onErrorResume(ResourceNotFoundException.class,
-                        ex -> Mono.just(ResponseEntity.notFound().build()));
+        return companyService.getFromDB(ticker)
+                .onErrorResume(ResourceNotFoundException.class, ex ->
+                        companyService.tryRefreshCompany(ticker)
+                                .onErrorResume(e -> Mono.empty())
+                )
+                .map(ResponseEntity::ok)
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
     }
 
     @GetMapping("/{ticker}/db")
