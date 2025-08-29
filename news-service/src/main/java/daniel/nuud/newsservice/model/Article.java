@@ -1,20 +1,20 @@
 package daniel.nuud.newsservice.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-@Document(collection = "articles")
+@Table("articles")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Article {
 
     @Id
@@ -22,16 +22,28 @@ public class Article {
 
     private String title;
     private String author;
-
     private String description;
+
+    @Column("article_url")
     private String articleUrl;
+
+    @Column("image_url")
     private String imageUrl;
 
-    private String publishedUtc;
+    @Column("published_utc")
+    private Instant publishedUtc;
+
+    @Column("publisher_name")
     private String publisherName;
+
+    @Column("publisher_logo_url")
     private String publisherLogoUrl;
+
+    @Column("publisher_homepage_url")
     private String publisherHomepageUrl;
+
+    @Column("publisher_favicon_url")
     private String publisherFaviconUrl;
 
-    private List<String> tickers = new ArrayList<>();
+    private String[] tickers;
 }

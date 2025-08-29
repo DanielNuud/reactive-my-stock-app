@@ -12,17 +12,25 @@ management:
       export:
         enabled: true
 
+logging:
+  level:
+    org.springframework.r2dbc.core: DEBUG
+    org.springframework.data.r2dbc: DEBUG
 
 polygon:
   api:
     key: ${POLYGON_API_KEY}
 
 spring:
-  data:
-    mongodb:
-      database: news-db
-      host: news-mongo
-      port: 27017
+  r2dbc:
+    url: r2dbc:postgresql://news-db:5432/news-db-rx
+    username: postgres
+    password: postgres
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://news-db:5432/news-db-rx
+    user: postgres
+    password: postgres
 server:
   port: 8080
 

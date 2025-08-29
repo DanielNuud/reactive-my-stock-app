@@ -1,6 +1,5 @@
 package daniel.nuud.newsservice.service;
 
-import com.mongodb.DuplicateKeyException;
 import daniel.nuud.newsservice.dto.ApiArticle;
 import daniel.nuud.newsservice.exception.ResourceNotFoundException;
 import daniel.nuud.newsservice.model.Article;
@@ -8,15 +7,15 @@ import daniel.nuud.newsservice.repository.NewsRepository;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +24,7 @@ public class NewsService {
 
     private final PolygonClient polygonClient;
     private final NewsRepository newsRepository;
+    private final R2dbcEntityTemplate r2dbcEntityTemplate;
 
     @SuppressWarnings("unused")
     private Mono<Boolean> skipRefreshReactive(String ticker, Throwable ex) {
@@ -38,15 +38,52 @@ public class NewsService {
 
         return polygonClient.getApiResponse(ticker)
                 .flatMapMany(resp -> Flux.fromIterable(
-                        resp.getResults() == null ? List.<ApiArticle>of() : resp.getResults()))
+                        resp.getResults() == null ? List.of() : resp.getResults()))
                 .map(api -> toEntity(api, ticker))
-                .collectList()
-                .flatMap(list -> list.isEmpty()
-                        ? Mono.just(false)
-                        : newsRepository.insert(list)
-                        .onErrorContinue(DuplicateKeyException.class, (ex, obj) -> {})
-                        .hasElements())
+                .buffer(100)
+                .concatMap(batch -> Flux.fromIterable(batch)
+                        .flatMap(this::upsertArticle, 8))
+                .hasElements()
                 .onErrorReturn(false);
+    }
+
+    private Mono<Article> upsertArticle(Article a) {
+        final String sql = """
+            insert into articles
+              (title, author, description, article_url, image_url,
+               published_utc, publisher_name, publisher_logo_url,
+               publisher_homepage_url, publisher_favicon_url, tickers)
+            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            on conflict (article_url) do update set
+              title                  = excluded.title,
+              author                 = excluded.author,
+              description            = excluded.description,
+              image_url              = excluded.image_url,
+              published_utc          = excluded.published_utc,
+              publisher_name         = excluded.publisher_name,
+              publisher_logo_url     = excluded.publisher_logo_url,
+              publisher_homepage_url = excluded.publisher_homepage_url,
+              publisher_favicon_url  = excluded.publisher_favicon_url,
+              tickers                = excluded.tickers
+            returning id, title, author, description, article_url, image_url,
+                      published_utc, publisher_name, publisher_logo_url,
+                      publisher_homepage_url, publisher_favicon_url, tickers
+            """;
+        return r2dbcEntityTemplate.getDatabaseClient()
+                .sql(sql)
+                .bind("$1",  a.getTitle())
+                .bind("$2",  a.getAuthor())
+                .bind("$3",  a.getDescription())
+                .bind("$4",  a.getArticleUrl())
+                .bind("$5",  a.getImageUrl())
+                .bind("$6",  a.getPublishedUtc())
+                .bind("$7",  a.getPublisherName())
+                .bind("$8",  a.getPublisherLogoUrl())
+                .bind("$9",  a.getPublisherHomepageUrl())
+                .bind("$10", a.getPublisherFaviconUrl())
+                .bind("$11", a.getTickers())
+                .map((row, md) -> r2dbcEntityTemplate.getConverter().read(Article.class, row, md))
+                .one();
     }
 
     @Bulkhead(name = "newsRead", type = Bulkhead.Type.SEMAPHORE)
@@ -60,37 +97,31 @@ public class NewsService {
 
     private static String nvl(String v, String d) { return v != null ? v : d; }
 
-    private Article toEntity(ApiArticle api, String fallbackTicker) {
-        Article a = new Article();
+    private Article toEntity(ApiArticle api, String ticker) {
 
-        a.setTitle(nvl(api.getTitle(), "Not found"));
-        a.setAuthor(nvl(api.getAuthor(), "Not found"));
-        a.setDescription(nvl(api.getDescription(), "Not found"));
-        a.setArticleUrl(nvl(api.getArticleUrl(), "Not found"));
-        a.setImageUrl(nvl(api.getImageUrl(), "Not found"));
+        return Article.builder()
+                .title(nvl(api.getTitle(), ""))
+                .author(api.getAuthor())
+                .description(api.getDescription())
+                .articleUrl(api.getArticleUrl())
+                .imageUrl(api.getImageUrl())
+                .publishedUtc(parseInstant(api.getPublishedUtc()))
+                .publisherName(api.getPublisher().getName())
+                .publisherLogoUrl(api.getPublisher().getLogoUrl())
+                .publisherHomepageUrl(api.getPublisher().getHomepageUrl())
+                .publisherFaviconUrl(api.getPublisher().getFavicon())
+                .tickers(new String[]{ ticker })
+                .build();
+    }
 
-        a.setPublishedUtc(nvl(api.getPublishedUtc(), "Not found"));
-
-        if (api.getPublisher() != null) {
-            a.setPublisherName(nvl(api.getPublisher().getName(), "Not found"));
-            a.setPublisherHomepageUrl(nvl(api.getPublisher().getHomepageUrl(), "Not found"));
-            a.setPublisherLogoUrl(nvl(api.getPublisher().getLogoUrl(), "Not found"));
-            a.setPublisherFaviconUrl(nvl(api.getPublisher().getFavicon(), "Not found"));
-        }
-
-        if (api.getTickers() != null && !api.getTickers().isEmpty()) {
-            a.setTickers(api.getTickers());
-        } else {
-            a.setTickers(List.of(fallbackTicker));
-        }
-        return a;
+    private static Instant parseInstant(String s) {
+        if (s == null || s.isBlank()) return Instant.EPOCH;
+        try { return Instant.parse(s); }
+        catch (Exception e) { return OffsetDateTime.parse(s).toInstant(); }
     }
 
     private static String normalize(String s) {
         return s == null ? "" : s.trim().toUpperCase(Locale.ROOT);
     }
 
-    public Flux<Article> getTop5News(String ticker) {
-        return newsRepository.findTop5ByTickersOrderByPublishedUtcDesc(ticker);
-    }
 }
