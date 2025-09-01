@@ -1,23 +1,16 @@
 package daniel.nuud.currencyservice.service;
 
-import daniel.nuud.currencyservice.dto.RateResponse;
 import daniel.nuud.currencyservice.exception.ResourceNotFoundException;
-import daniel.nuud.currencyservice.notification.NotificationCommand;
-import daniel.nuud.currencyservice.notification.NotificationProducer;
+import daniel.nuud.currencyservice.notification.NotificationClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +18,7 @@ import java.util.UUID;
 public class CurrencyService {
 
     private final RatesProvider ratesProvider;
-    private final NotificationProducer notificationProducer;
+    private final NotificationClient  notificationClient;
 
     public Mono<Double> convert(String from, String to, Double amount, String userKey) {
         final String base = normalize(from);
@@ -33,16 +26,32 @@ public class CurrencyService {
 
         if (base.equals(quote)) {
             return notifySuccess(userKey, base, quote, amount, amount)
+                    .onErrorResume(e -> {
+                        log.warn("notifySuccess failed (same-currency): {}", e.toString());
+                        return Mono.empty();
+                    })
                     .thenReturn(amount);
         }
 
         return ratesProvider.getRates(base)
                 .flatMap(map -> pickRate(map, quote))
                 .map(rateStr -> multiply(amount, rateStr))
-                .flatMap(result -> notifySuccess(userKey, base, quote, amount, result)
-                        .thenReturn(result))
-                .onErrorResume(ex -> notifyFailure(userKey, base, quote, amount, ex)
-                        .then(Mono.error(ex)));
+                .flatMap(result ->
+                        notifySuccess(userKey, base, quote, amount, result)
+                                .onErrorResume(e -> {
+                                    log.warn("notifySuccess failed: {}", e.toString());
+                                    return Mono.empty();
+                                })
+                                .thenReturn(result)
+                )
+                .onErrorResume(ex ->
+                        notifyFailure(userKey)
+                                .onErrorResume(e -> {
+                                    log.warn("notifyFailure failed: {}", e.toString());
+                                    return Mono.empty();
+                                })
+                                .then(Mono.error(ex))
+                );
     }
 
     private static String normalize(String s) {
@@ -63,36 +72,22 @@ public class CurrencyService {
                 .doubleValue();
     }
 
-    private Mono<Void> notifySuccess(String userKey, String base, String quote, Double amount, Double result) {
-        var cmd = new NotificationCommand(
-                UUID.randomUUID().toString(),
-                userKey,
-                "FX conversion",
-                "%s → %s : %s = %s".formatted(base, quote, amount, result),
-                "SUCCESS",
-                "FX:OK:" + epochMinute(),
-                Instant.now(),
-                "currency-service",
-                null
-        );
-        return notificationProducer.send(cmd)
-                .doOnError(e -> log.warn("notifySuccess publish failed: {}", e.toString()));
+    private Mono<Void> notifySuccess(String userKey, String from, String to, Double amount, Double result) {
+           return notificationClient.sendNotification(
+                    userKey,
+                    "Conversion completed",
+                    amount + " " + from + " → " + String.format("%.4f", result) + " " + to,
+                    "INFO",
+                    "FX:CONVERT:" + from + ":" + to + ":" + amount);
     }
 
-    private Mono<Void> notifyFailure(String userKey, String base, String quote, Double amount, Throwable e) {
-        var cmd = new NotificationCommand(
-                UUID.randomUUID().toString(),
+    private Mono<Void> notifyFailure(String userKey) {
+        return notificationClient.sendNotification(
                 userKey,
                 "Conversion failed",
-                "Failed to convert %s %s to %s: %s".formatted(amount, base, quote, e.getMessage()),
+                "Please check your currency rates and try again.",
                 "ERROR",
-                "FX:INVALID:" + epochMinute(),
-                Instant.now(),
-                "currency-service",
-                null
-        );
-        return notificationProducer.send(cmd)
-                .doOnError(err -> log.warn("notifyFailure publish failed: {}", err.toString()));
+                "FX:INVALID:" + epochMinute());
     }
 
     private Long epochMinute() {

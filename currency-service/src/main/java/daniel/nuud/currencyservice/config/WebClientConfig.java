@@ -13,11 +13,18 @@ import java.util.Map;
 public class WebClientConfig {
 
     @Bean
-    public WebClient webClient(@Value("${freecurrency.api.key}") String apiKey) {
+    public WebClient freeCurrencyWebClient(@Value("${freecurrency.api.key}") String apiKey) {
         return WebClient.builder()
                 .baseUrl("https://api.freecurrencyapi.com")
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .defaultUriVariables(Map.of("apiKey", apiKey))
+                .build();
+    }
+
+    @Bean
+    public WebClient notificationWebClient() {
+        return WebClient.builder()
+                .baseUrl("http://notification-service:8080")
                 .build();
     }
 }
