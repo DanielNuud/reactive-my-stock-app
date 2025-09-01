@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Client } from "@stomp/stompjs";
 
 const useLiveConvertedPrice = (ticker, currency) => {
   const [price, setPrice] = useState(null);
