@@ -1,30 +1,37 @@
 package daniel.nuud.notificationservice.model;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
 
-@Document("notifications")
+@Table("notifications")
+@NoArgsConstructor
+@AllArgsConstructor
 @Getter
 @Setter
-@CompoundIndex(name = "uniq_user_dedup", def = "{'userKey':1,'dedupKey':1}", unique = true)
+@Builder
 public class Notification {
     @Id
-    private String id;
+    private Long id;
 
+    @Column("user_key")
     private String userKey;
+
     private String title;
     private String message;
-    private Level level;
 
-    private String dedupKey;
+    @Builder.Default
+    private Level level = Level.INFO;
+
+    @Column("read_flag")
+    private boolean readFlag;
+
+    @Column("created_at")
     private Instant createdAt;
-    private boolean read;
 
-    private String source;
-    private String traceId;
+    @Column("dedupe_key")
+    private String dedupeKey;
 }

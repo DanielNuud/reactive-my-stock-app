@@ -1,18 +1,15 @@
 spring:
   application:
     name: notification-service
-  data:
-    mongodb:
-      database: notifications_db
-      host: notifications-mongo
-      port: 27017
-      auto-index-creation: true
+  r2dbc:
+    url: r2dbc:postgresql://notification-db:5432/notification-db-rx
+    username: postgres
+    password: postgres
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://notification-db:5432/notification-db-rx
+    user: postgres
+    password: postgres
 
 server:
   port: 8080
-
-kafka:
-  bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
-  topics:
-    notifications: notifications.commands
-    dlq: notifications.dlq
