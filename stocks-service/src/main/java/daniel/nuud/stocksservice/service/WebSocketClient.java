@@ -130,7 +130,9 @@ public class WebSocketClient {
                     return;
                 }
             }
-        } catch (Exception ignore) { /* не статус — идём дальше */ }
+        } catch (Exception ignore) {
+
+        }
         messageProcessor.process(text);
     }
 

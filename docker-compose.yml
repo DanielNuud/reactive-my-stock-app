@@ -10,24 +10,6 @@ services:
     networks:
       - stocknet
 
-  redpanda:
-    image: redpandadata/redpanda:latest
-    container_name: redpanda
-    command:
-      - redpanda start
-      - --overprovisioned
-      - --smp 1
-      - --memory 1G
-      - --reserve-memory 0M
-      - --node-id 0
-      - --check=false
-      - --kafka-addr 0.0.0.0:9092
-      - --advertise-kafka-addr redpanda:9092
-    ports:
-      - "9092:9092"
-    networks:
-      - stocknet
-
   company-db:
     image: postgres:16
     container_name: company-db
@@ -71,18 +53,33 @@ services:
     networks:
       - stocknet
 
-  notifications-mongo:
-    image: mongo:6.0
-    container_name: notifications-mongo
+  notification-db:
+    image: postgres:16
+    container_name: notification-db
     restart: always
     ports:
-      - "27020:27017"
+      - "5434:5432"
     environment:
-      MONGO_INITDB_DATABASE: notifications_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notification-db-rx
     volumes:
-      - notifications_mongo_data:/data/db
+      - notification_db_data:/var/lib/postgresql/data
     networks:
       - stocknet
+
+#  notifications-mongo:
+#    image: mongo:6.0
+#    container_name: notifications-mongo
+#    restart: always
+#    ports:
+#      - "27020:27017"
+#    environment:
+#      MONGO_INITDB_DATABASE: notifications_db
+#    volumes:
+#      - notifications_mongo_data:/data/db
+#    networks:
+#      - stocknet
 
   redis-currency:
     image: redis:latest
@@ -173,13 +170,11 @@ services:
     ports:
       - "8085:8080"
     depends_on:
-      - notifications-mongo
-      - redpanda
+      - notification-db
     environment:
-      SPRING_DATA_MONGODB_HOST: notifications-mongo
-      SPRING_DATA_MONGODB_PORT: 27017
-      SPRING_DATA_MONGODB_DATABASE: notifications_db
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SPRING_R2DBC_URL: r2dbc:postgresql://notification-db:5432/notification-db-rx
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
     networks:
       - stocknet
 
@@ -234,10 +229,8 @@ services:
       - monitoring
 
 volumes:
-  news_mongo_data:
-  company_mongo_data:
   historical_mongo_data:
-  notifications_mongo_data:
+  notification_db_data:
   company_db_data:
   news_db_data:
 

@@ -28,9 +28,9 @@ logging:
     org.springframework.web.reactive.socket: DEBUG
 
 kafka:
-  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
+
   topics:
-    realtime: stock.bars.realtime
+
     notifications: notifications.commands
 
 alerts:

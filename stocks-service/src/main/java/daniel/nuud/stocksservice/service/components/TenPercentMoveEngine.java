@@ -1,12 +1,12 @@
 package daniel.nuud.stocksservice.service.components;
 
 import daniel.nuud.stocksservice.model.StockPrice;
-import daniel.nuud.stocksservice.notification.NotificationCommand;
-import daniel.nuud.stocksservice.notification.NotificationPublisher;
+import daniel.nuud.stocksservice.notification.NotificationClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -22,35 +22,37 @@ public class TenPercentMoveEngine {
     private double threshold;
 
     private final ActiveSubscription active;
-    private final NotificationPublisher notifications;
+    private final NotificationClient notificationClient;
 
     private final ConcurrentMap<String, Double> anchor = new ConcurrentHashMap<>();
 
-    public void onPrice(StockPrice price) {
+    public Mono<Void> onPrice(StockPrice price) {
         final String ticker = price.getTicker();
         final double curr = price.getPrice();
+
         Double ref = anchor.putIfAbsent(ticker, curr);
-        if (ref == null || ref == 0.0) return;
+        if (ref == null || ref == 0.0) return Mono.empty();
 
         double change = (curr - ref) / ref;
-        if (Math.abs(change) >= threshold) {
-            String dir = change >= 0 ? "UP" : "DOWN";
-            double pct = round(Math.abs(change) * 100.0, 2);
+        if (Math.abs(change) < threshold) return Mono.empty();
 
-            active.owner().ifPresentOrElse(userKey -> {
-                notifications.publish(new NotificationCommand(
+        String dir = change >= 0 ? "UP" : "DOWN";
+        double pct = BigDecimal.valueOf(Math.abs(change) * 100.0)
+                .setScale(2, RoundingMode.HALF_UP).doubleValue();
+
+        anchor.put(ticker, curr);
+
+        return Mono.justOrEmpty(active.owner())
+                .flatMap(userKey -> notificationClient.sendNotification(
                         userKey,
                         "Price move " + dir,
-                        ticker + " moved " + pct + "% from ~" + round(ref, 4),
+                        ticker + " moved " + pct + "% from",
                         "WARN",
-                        "STOCKS:MOVE10:" + ticker + ":" + dir,
-                        System.currentTimeMillis()
-                ));
-                log.info("Move10 {} {}% → notified user={}", ticker, pct, userKey);
-            }, () -> log.debug("Move10 {} {}% but no active subscriber", ticker, pct));
-
-            anchor.put(ticker, curr);
-        }
+                        "STOCKS:MOVE10:" + ticker + ":" + dir
+                ))
+                .doOnSuccess(v -> log.info("Move10 {} {}% → notified", ticker, pct))
+                .doOnError(err -> log.warn("Move10 notify failed: {}", err.toString()))
+                .then();
     }
 
     private static double round(double v, int scale) {

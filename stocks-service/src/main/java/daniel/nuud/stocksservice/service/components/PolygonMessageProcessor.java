@@ -30,7 +30,7 @@ public class PolygonMessageProcessor {
 
                 stockPriceService.save(ticker, close, ts);
 
-                tenPercentMoveEngine.onPrice(new StockPrice(ticker, close, ts));
+                tenPercentMoveEngine.onPrice(new StockPrice(ticker, close, ts)).subscribe();
 
             } else if ("status".equals(ev)) {
 
