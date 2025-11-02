@@ -2,11 +2,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, prometheus
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
   metrics:
     distribution:
       percentiles-histogram:
-        "[http.server.requests]": true
+        http.server.requests: true
+      slo:
+        "[http.server.requests]": 25ms,50ms,100ms,200ms,400ms,800ms
+    tags:
+      application: ${spring.application.name}
   prometheus:
     metrics:
       export:

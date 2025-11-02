@@ -3,6 +3,7 @@ package daniel.nuud.newsservice.service;
 import daniel.nuud.newsservice.dto.ApiResponse;
 import daniel.nuud.newsservice.exception.ResourceNotFoundException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +24,7 @@ public class PolygonClient {
     private String apiKey;
 
     @CircuitBreaker(name = "polygonNewsDB", fallbackMethod = "skipRefreshReactive")
+    @Retry(name = "readSafe")
     public Mono<ApiResponse> getApiResponse(String ticker) {
         return webClient.get()
                 .uri("/v2/reference/news?ticker={ticker}&order=asc&limit=10&sort=published_utc&apiKey={apiKey}",

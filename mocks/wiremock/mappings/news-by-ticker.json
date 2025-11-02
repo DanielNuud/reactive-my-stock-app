@@ -1,0 +1,16 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/v2/reference/news",
+    "queryParameters": {
+      "ticker": { "matches": "^[A-Za-z.]+$" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "transformers": ["response-template"],
+    "bodyFileName": "news/{{request.query.ticker.[0]}}.json"
+  }
+}

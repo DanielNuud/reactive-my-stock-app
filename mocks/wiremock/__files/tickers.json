@@ -1,0 +1,119 @@
+{
+  "results": [
+    {
+      "ticker": "A",
+      "name": "Mock A",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AA",
+      "name": "Mock AA",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AAP",
+      "name": "Advance Auto Parts Inc.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AAPL",
+      "name": "Apple Inc.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "T",
+      "name": "AT&T Inc.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "TS",
+      "name": "Tenaris S.A.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "TSL",
+      "name": "Mock TSL",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "TSLA",
+      "name": "Tesla Inc.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "N",
+      "name": "Mock N",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "NV",
+      "name": "Mock NV",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "NVD",
+      "name": "Mock NVD",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AM",
+      "name": "Antero Midstream Corporation",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AMZ",
+      "name": "Mock AMZ",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AMZN",
+      "name": "Amazon.com, Inc.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    },
+    {
+      "ticker": "AMD",
+      "name": "Advanced Micro Devices, Inc.",
+      "market": "stocks",
+      "locale": "us",
+      "currency_name": "usd"
+    }
+  ],
+  "status": "OK",
+  "request_id": "mock-req-id",
+  "count": 16
+}

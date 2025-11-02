@@ -1,0 +1,16 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/v1/latest",
+    "queryParameters": {
+      "base_currency": { "matches": ".+" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "transformers": ["response-template"],
+    "bodyFileName": "currency/{{request.query.base_currency}}.json"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "data": {
+    "USD": 1.0000,
+    "EUR": 0.9259,
+    "GBP": 0.7963,
+    "RUB": 87.9629,
+    "JPY": 157.4074
+  },
+  "query": { "base_currency": "USD" },
+  "meta":  { "last_updated_at": "2025-10-01T00:00:00Z" }
+}

@@ -2,6 +2,10 @@ freecurrency:
   api:
     key: fca_live_hs0yPrOObSsKEWaBJoMXsAeK398j4L9L5pl84AY1
 
+external:
+  polygon:
+    base-url: https://api.freecurrencyapi.com
+
 server:
   port: 8080
   address: 0.0.0.0
@@ -16,7 +20,58 @@ spring:
   cache:
     type: redis
 
-kafka:
+resilience4j:
+  circuitbreaker:
+    instances:
+      freeCurrencyCB:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 30
+        minimum-number-of-calls: 10
+        slow-call-duration-threshold: 1s
+        slow-call-rate-threshold: 60
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        recordExceptions:
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+          - org.springframework.web.client.HttpServerErrorException
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException
+  retry:
+    instances:
+      readSafe:
+        max-attempts: 3
+        wait-duration: 100ms
+        enable-exponential-backoff: true
+        retry-exceptions:
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+  bulkhead:
+    instances:
+      fxRead:
+        max-concurrent-calls: 16
+        max-wait-duration: 0
 
-  topics:
-    notifications: notifications.commands
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        "[http.server.requests]": 25ms,50ms,100ms,200ms,400ms,800ms
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true

@@ -1,0 +1,3 @@
+external:
+  polygon:
+    base-url: http://wiremock:8080

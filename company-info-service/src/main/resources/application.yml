@@ -1,3 +1,7 @@
+external:
+  polygon:
+    base-url: https://api.polygon.io
+
 polygon:
   api:
     key: ${POLYGON_API_KEY}
@@ -6,15 +10,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, prometheus
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
   metrics:
     distribution:
       percentiles-histogram:
-        "[http.server.requests]": true
-  prometheus:
-    metrics:
-      export:
-        enabled: true
+        http.server.requests: true
+      slo:
+        "[http.server.requests]": 25ms,50ms,100ms,200ms,400ms,800ms
+    tags:
+      application: ${spring.application.name}
 
 spring:
   r2dbc:
@@ -48,13 +55,13 @@ resilience4j:
     instances:
       polygonCompanyCB:
         sliding-window-type: TIME_BASED
-        sliding-window-size: 30
-        minimum-number-of-calls: 10
-        slow-call-duration-threshold: 1s
-        slow-call-rate-threshold: 60
+        sliding-window-size: 60
+        minimum-number-of-calls: 50
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 70
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
+        permitted-number-of-calls-in-half-open-state: 5
         record-exceptions:
           - org.springframework.web.reactive.function.client.WebClientRequestException
           - org.springframework.web.reactive.function.client.WebClientResponseException
@@ -67,8 +74,8 @@ resilience4j:
   retry:
     instances:
       readSafe:
-        max-attempts: 3
-        wait-duration: 100ms
+        max-attempts: 2
+        wait-duration: 150ms
         enable-exponential-backoff: true
         retry-exceptions:
           - org.springframework.web.reactive.function.client.WebClientRequestException
@@ -82,8 +89,14 @@ resilience4j:
   bulkhead:
     instances:
       companyRead:
-        max-concurrent-calls: 16
-        max-wait-duration: 0ms
+        max-concurrent-calls: 128
+        max-wait-duration:
+          seconds: 0
       companyWrite:
-        max-concurrent-calls: 4
-        max-wait-duration: 0ms
+        max-concurrent-calls: 30
+        max-wait-duration:
+          seconds: 0
+      companySearch:
+        max-concurrent-calls: 256
+        max-wait-duration:
+          seconds: 0

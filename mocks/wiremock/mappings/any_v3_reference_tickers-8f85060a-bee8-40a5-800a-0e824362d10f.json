@@ -1,0 +1,18 @@
+{
+  "id" : "8f85060a-bee8-40a5-800a-0e824362d10f",
+  "name" : "any_v3_reference_tickers",
+  "request" : {
+    "urlPattern" : "/v3/reference/tickers.*",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "bodyFileName" : "tickers.json",
+    "headers" : {
+      "Content-Type" : "application/json"
+    }
+  },
+  "uuid" : "8f85060a-bee8-40a5-800a-0e824362d10f",
+  "persistent" : true,
+  "insertionIndex" : 23
+}

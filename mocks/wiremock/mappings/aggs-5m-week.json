@@ -1,0 +1,13 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/v2/aggs/ticker/([A-Za-z.]+)/range/5/minute/.+/.+"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "transformers": ["response-template"],
+    "bodyFileName": "historical/{{request.pathSegments.[3]}}_week.json"
+  }
+}

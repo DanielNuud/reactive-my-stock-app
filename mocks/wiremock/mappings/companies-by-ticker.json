@@ -1,0 +1,13 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/v3/reference/tickers/([A-Za-z0-9.]+)"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "transformers": ["response-template"],
+    "bodyFileName": "companies/{{request.pathSegments.[3]}}.json"
+  }
+}

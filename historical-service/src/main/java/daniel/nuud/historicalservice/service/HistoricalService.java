@@ -5,8 +5,7 @@ import daniel.nuud.historicalservice.dto.StockBarApi;
 import daniel.nuud.historicalservice.dto.StockPrice;
 import daniel.nuud.historicalservice.model.StockBar;
 import daniel.nuud.historicalservice.model.TimePreset;
-import daniel.nuud.historicalservice.notification.NotificationCommand;
-import daniel.nuud.historicalservice.notification.NotificationProducer;
+import daniel.nuud.historicalservice.notification.NotificationClient;
 import daniel.nuud.historicalservice.repository.StockBarRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +27,7 @@ public class HistoricalService {
 
     private final PolygonClient polygonClient;
     private final StockBarRepository stockBarRepository;
-    private final NotificationProducer notificationProducer;
+    private final NotificationClient notificationClient;
 
     @Value("${polygon.api.key}")
     private String apiKey;
@@ -71,50 +70,25 @@ public class HistoricalService {
     }
 
     private Mono<Void> notifyReady(String userKey, String ticker, String period) {
-        String t = ticker == null ? "" : ticker.toUpperCase(Locale.ROOT);
-        String p = period == null ? "" : period.toUpperCase(Locale.ROOT);
-
-        NotificationCommand cmd = new NotificationCommand(
-                UUID.randomUUID().toString(),
+        return notificationClient.sendNotification(
                 userKey,
                 "Chart ready",
-                t + " (" + p + ") is ready",
+                ticker.toUpperCase() + " (" + period + ") is ready",
                 "INFO",
-                "CHART:READY:" + t + ":" + p,
-                Instant.now(),
-                "historical",
-                null
+                "CHART:READY:" + ticker.toUpperCase() + ":" + period
         );
-
-        return notificationProducer.send(cmd)
-                .onErrorResume(e -> {
-                    log.warn("Failed to send READY notification for {} ({}): {}", t, p, e.toString());
-                    return Mono.empty();
-                });
     }
 
-    private Mono<Void> notifyFailed(String userKey, String ticker, String period, Throwable cause) {
-        String t = ticker == null ? "" : ticker.toUpperCase(Locale.ROOT);
-        String p = period == null ? "" : period.toUpperCase(Locale.ROOT);
-
-        NotificationCommand cmd = new NotificationCommand(
-                UUID.randomUUID().toString(),
-                userKey,
-                "Chart fetch failed",
-                "Please try again later.",
-                "ERROR",
-                "CHART:FAILED:" + t + ":" + p,
-                Instant.now(),
-                "historical",
-                null
-        );
-
-        return notificationProducer.send(cmd)
-                .onErrorResume(e -> {
-                    log.warn("Failed to send FAILED notification for {} ({}): {}", t, p, e.toString());
-                    return Mono.empty();
-                });
+    private Mono<Void> notifyFailed(String userKey, String ticker, String period, Exception cause) {
+           return notificationClient.sendNotification(
+                    userKey,
+                    "Chart fetch failed",
+                    "Please try again later.",
+                    "ERROR",
+                    "CHART:FAILED:" + ticker.toUpperCase() + ":" + period.toUpperCase()
+            );
     }
+
 
     private Flux<StockBar> toBars(ApiResponse response, String ticker) {
         if (response == null || response.getResults() == null || response.getResults().isEmpty()) {
@@ -173,10 +147,11 @@ public class HistoricalService {
     }
 
     private TimePreset determinePreset(String period) {
-        return switch (period.toUpperCase(Locale.ROOT)) {
+        return switch (period.toUpperCase()) {
             case "ONE_WEEK" -> new TimePreset("5", "minute");
+            case "ONE_MONTH" -> new TimePreset("1", "day");
             case "ONE_YEAR" -> new TimePreset("1", "week");
-            default -> new TimePreset("1", "day");
+            default -> new TimePreset("1", "day"); // fallback
         };
     }
 
