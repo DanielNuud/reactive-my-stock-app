@@ -6,7 +6,6 @@ import daniel.nuud.historicalservice.dto.StockPrice;
 import daniel.nuud.historicalservice.model.StockBar;
 import daniel.nuud.historicalservice.model.TimePreset;
 import daniel.nuud.historicalservice.notification.NotificationClient;
-import daniel.nuud.historicalservice.repository.StockBarRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class HistoricalService {
 
     private final PolygonClient polygonClient;
-    private final StockBarRepository stockBarRepository;
     private final NotificationClient notificationClient;
 
     @Value("${polygon.api.key}")
@@ -52,20 +50,31 @@ public class HistoricalService {
         String multiplier = preset.multiplier();
         String timespan   = preset.timespan();
 
-        return polygonClient.getAggregates(ticker, multiplier, timespan,
-                        fromDate.toLocalDate(), toNow.toLocalDate(), apiKey)
+        return polygonClient.getAggregates(
+                        ticker,
+                        multiplier,
+                        timespan,
+                        fromDate.toLocalDate(),
+                        toNow.toLocalDate(),
+                        apiKey
+                )
                 .switchIfEmpty(Mono.defer(() ->
                         notifyFailed(userKey, ticker, period, null)
                                 .then(Mono.error(new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND, "No bars for " + ticker + " (" + period + ")")))))
+                                        HttpStatus.NOT_FOUND,
+                                        "No bars for " + ticker + " (" + period + ")")))))
                 .flatMapMany(resp -> toBars(resp, ticker))
                 .concatWith(appendLatestIfAny(ticker))
-                .concatWith(Mono.defer(() -> notifyReady(userKey, ticker, period))
-                        .then(Mono.empty()))
+                .concatWith(Mono.defer(() ->
+                        notifyReady(userKey, ticker, period)).then(Mono.empty()))
                 .onErrorResume(ex ->
-                        notifyFailed(userKey, ticker, period, ex instanceof Exception ? (Exception) ex : new RuntimeException(ex))
-                                .then(Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Upstream error", ex))))
-        ;
+                        notifyFailed(userKey, ticker, period,
+                                ex instanceof Exception ? (Exception) ex : new RuntimeException(ex))
+                                .then(Mono.error(new ResponseStatusException(
+                                        HttpStatus.BAD_GATEWAY,
+                                        "Upstream error",
+                                        ex))))
+                .limitRate(300);
 
     }
 
@@ -96,8 +105,7 @@ public class HistoricalService {
         }
 
         return Flux.fromIterable(response.getResults())
-                .map(dto -> mapToEntity(ticker, dto))
-                .as(stockBarRepository::saveAll);
+                .map(dto -> mapToEntity(ticker, dto));
     }
 
     private Flux<StockBar> appendLatestIfAny(String ticker) {

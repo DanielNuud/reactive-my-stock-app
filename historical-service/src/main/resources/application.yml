@@ -27,12 +27,12 @@ management:
       export:
         enabled: true
 
-spring:
-  data:
-    mongodb:
-      database: historical-db
-      host: historical-mongo
-      port: 27017
+#spring:
+#  data:
+#    mongodb:
+#      database: historical-db
+#      host: historical-mongo
+#      port: 27017
 server:
   port: 8080
 

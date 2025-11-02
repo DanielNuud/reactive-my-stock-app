@@ -2,27 +2,42 @@ global:
   scrape_interval: 10s
 
 scrape_configs:
-  - job_name: 'api-gateway'
-    metrics_path: '/actuator/prometheus'
+  - job_name: "api-gateway"
+    metrics_path: "/actuator/prometheus"
     static_configs:
-      - targets: ['host.docker.internal:8080']
+      - targets: [ "api-gateway:8080" ]
 
-  - job_name: 'company-info-service'
-    metrics_path: '/actuator/prometheus'
+  - job_name: "company-info-service"
+    metrics_path: "/actuator/prometheus"
     static_configs:
-      - targets: ['host.docker.internal:8081']
+      - targets: [ "company-info-service:8080" ]
 
-  - job_name: 'currency-service'
-    metrics_path: '/actuator/prometheus'
+  - job_name: "currency-service"
+    metrics_path: "/actuator/prometheus"
     static_configs:
-      - targets: ['host.docker.internal:8084']
+      - targets: [ "currency-service:8080" ]
 
-  - job_name: 'historical-service'
-    metrics_path: '/actuator/prometheus'
+  - job_name: "historical-service"
+    metrics_path: "/actuator/prometheus"
     static_configs:
-      - targets: ['host.docker.internal:8083']
+      - targets: [ "historical-service:8080" ]
 
-  - job_name: 'news-service'
-    metrics_path: '/actuator/prometheus'
+  - job_name: "news-service"
+    metrics_path: "/actuator/prometheus"
     static_configs:
-      - targets: ['host.docker.internal:8082']
+      - targets: [ "news-service:8080" ]
+
+  - job_name: "stocks-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: [ "stocks-service:8080" ]
+
+  - job_name: "notification-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets: [ "notification-service:8080" ]
+
+  - job_name: "cadvisor"
+    scrape_interval: 5s
+    static_configs:
+      - targets: [ "cadvisor:8080" ]

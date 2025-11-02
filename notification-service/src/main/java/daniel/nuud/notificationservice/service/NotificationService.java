@@ -26,7 +26,6 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final R2dbcEntityTemplate r2dbc;
 
-    @Transactional
     public Mono<Long> createNotification(CreateNotificationRequest req) {
         log.info("Received CreateNotificationRequest {}", req);
 

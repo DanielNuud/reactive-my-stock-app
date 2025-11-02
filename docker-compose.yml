@@ -20,8 +20,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: company-info-db-rx
-    volumes:
-      - company_db_data:/var/lib/postgresql/data
     networks:
       - stocknet
 
@@ -35,23 +33,21 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: news-db-rx
-    volumes:
-      - news_db_data:/var/lib/postgresql/data
     networks:
       - stocknet
 
-  historical-mongo:
-    image: mongo:6.0
-    container_name: historical-mongo
-    restart: always
-    ports:
-      - "27019:27017"
-    environment:
-      MONGO_INITDB_DATABASE: historical-db
-    volumes:
-      - historical_mongo_data:/data/db
-    networks:
-      - stocknet
+#  historical-mongo:
+#    image: mongo:6.0
+#    container_name: historical-mongo
+#    restart: always
+#    ports:
+#      - "27019:27017"
+#    environment:
+#      MONGO_INITDB_DATABASE: historical-db
+#    volumes:
+#      - historical_mongo_data:/data/db
+#    networks:
+#      - stocknet
 
   notification-db:
     image: postgres:16
@@ -63,8 +59,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: notification-db-rx
-    volumes:
-      - notification_db_data:/var/lib/postgresql/data
     networks:
       - stocknet
 
@@ -104,12 +98,12 @@ services:
       context: ./currency-service
     container_name: currency-service
     ports:
-      - "8084:8080"
+      - "8083:8080"
     depends_on:
       - redis-currency
     environment:
       SPRING_REDIS_HOST: redis-currency
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SPRING_PROFILES_ACTIVE: mock
     networks:
       - stocknet
 
@@ -126,6 +120,7 @@ services:
       SPRING_R2DBC_USERNAME: postgres
       SPRING_R2DBC_PASSWORD: postgres
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+      SPRING_PROFILES_ACTIVE: mock
     networks:
       - stocknet
 
@@ -144,6 +139,7 @@ services:
       SPRING_R2DBC_PASSWORD: postgres
       SPRING_REDIS_HOST: redis-company
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+      SPRING_PROFILES_ACTIVE: mock
     networks:
       - stocknet
 
@@ -152,14 +148,13 @@ services:
       context: ./historical-service
     container_name: historical-service
     ports:
-      - "8083:8080"
-    depends_on:
-      - historical-mongo
+      - "8084:8080"
     environment:
       SPRING_DATA_MONGODB_HOST: historical-mongo
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_MONGODB_DATABASE: historical-db
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
+      SPRING_PROFILES_ACTIVE: mock
     networks:
       - stocknet
 
@@ -168,7 +163,7 @@ services:
       context: ./notification-service
     container_name: notification-service
     ports:
-      - "8085:8080"
+      - "8086:8080"
     depends_on:
       - notification-db
     environment:
@@ -183,7 +178,7 @@ services:
       context: ./stocks-service
     container_name: stocks-service
     ports:
-      - "8086:8080"
+      - "8085:8080"
     depends_on:
       - historical-service
     environment:
@@ -199,9 +194,45 @@ services:
       - "8080:8080"
     depends_on:
       - company-info-service
+      - news-service
+      - currency-service
+      - historical-service
+      - stocks-service
     networks:
       - stocknet
-
+  
+  load-tests:
+    image: gradle:8.14.1-jdk17
+    profiles: [ "tests" ]
+    working_dir: /work
+    user: "${UID}:${GID}"
+    volumes:
+      - ./load-tests:/work
+    depends_on:
+      - api-gateway
+    sysctls:
+      net.ipv4.ip_local_port_range: "10000 65535"
+      net.ipv4.tcp_tw_reuse: "1"
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    environment:
+      BASE_URL: http://api-gateway:8080
+      WS_BASE_URL: ws://api-gateway:8080
+      START_CONC: "100"
+      TARGET_CONC: "1600"
+      RAMP_MIN: "5"
+      HOLD_MIN: "60"
+      RAMPDOWN_SEC: "0"
+    command: >
+      ./gradlew gatlingRun
+      -Dgatling.simulationClass=example.MasterRouteSimulation
+      -DWS_BASE_URL=ws://api-gateway:8080
+      -DBASE_URL=http://api-gateway:8080
+    networks:
+      - stocknet
+  
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -210,8 +241,15 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     restart: unless-stopped
+    depends_on:
+      - api-gateway
+      - company-info-service
+      - currency-service
+      - historical-service
+      - news-service
+      - notification-service
     networks:
-      - monitoring
+      - stocknet
 
   grafana:
     image: grafana/grafana
@@ -225,17 +263,56 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SERVER_ROOT_URL=http://localhost:3000
     restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
     networks:
-      - monitoring
+      - stocknet
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    privileged: true
+    command:
+      - --housekeeping_interval=10s
+      - --store_container_labels=true
+      - --docker_only=true
+      - --event_storage_event_limit=default=0
+      - --event_storage_age_limit=default=0
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /mnt/wsl/docker-desktop-data/data/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    devices:
+      - /dev/kmsg
+    ports:
+      - "8090:8080"
+    networks:
+      - stocknet
+
+  wiremock:
+    container_name: wiremock
+    profiles: [ "tests" ]
+    image: wiremock/wiremock:latest
+    entrypoint: [ "/docker-entrypoint.sh",
+                  "--global-response-templating",
+                  "--verbose",
+                  "--disable-gzip" ]
+    volumes:
+      - ./mocks/wiremock:/home/wiremock
+    ports:
+      - "8089:8080"
+    networks:
+      - stocknet
 
 volumes:
-  historical_mongo_data:
-  notification_db_data:
-  company_db_data:
-  news_db_data:
+  grafana-data:
 
 networks:
   stocknet:
-    driver: bridge
-  monitoring:
     driver: bridge
