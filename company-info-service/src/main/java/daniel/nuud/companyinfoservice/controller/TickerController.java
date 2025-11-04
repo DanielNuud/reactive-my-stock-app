@@ -28,8 +28,6 @@ public class TickerController {
                 .flatMap(refreshed -> tickerService.getFromDB(query)
                         .map(list -> ResponseEntity.ok()
                                 .header("X-Data-Freshness", refreshed ? "fresh" : "stale")
-                                .body(list)))
-                .onErrorResume(ResourceNotFoundException.class,
-                        ex -> Mono.just(ResponseEntity.notFound().build()));
+                                .body(list)));
     }
 }

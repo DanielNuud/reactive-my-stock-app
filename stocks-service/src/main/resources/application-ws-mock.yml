@@ -1,0 +1,11 @@
+stocks:
+  ws:
+    mock: true
+mock:
+  ws:
+    period-ms: 5000
+spring:
+  task:
+    scheduling:
+      pool:
+        size: 2  

@@ -229,28 +229,44 @@ public class MasterRouteSimulation extends Simulation {
         int HOLD_MIN     = Integer.parseInt(System.getenv().getOrDefault("HOLD_MIN", "20"));
         int RAMPDOWN_SEC = Integer.parseInt(System.getenv().getOrDefault("RAMPDOWN_SEC", "30"));
 
+//        setUp(
+//                scn.injectClosed(
+//                        // 1. подготовка
+//                        rampConcurrentUsers(0).to(400).during(60),
+//                        constantConcurrentUsers(400).during(60),
+//
+//                        // спайк 1 (жёсткий)
+//                        rampConcurrentUsers(400).to(2200).during(10),
+//                        constantConcurrentUsers(2200).during(45),
+//
+//                        // восстановление
+//                        rampConcurrentUsers(2200).to(400).during(10),
+//                        constantConcurrentUsers(400).during(120),
+//
+//                        // спайк 2 (чуть мягче)
+//                        rampConcurrentUsers(400).to(2000).during(10),
+//                        constantConcurrentUsers(2000).during(45),
+//
+//                        // финальное восстановление
+//                        rampConcurrentUsers(2000).to(400).during(10),
+//                        constantConcurrentUsers(400).during(120)
+//                )
+//        ).protocols(httpProtocol);
+
         setUp(
                 scn.injectClosed(
-                        // 1. подготовка
-                        rampConcurrentUsers(0).to(400).during(60),
-                        constantConcurrentUsers(400).during(60),
-
-                        // спайк 1 (жёсткий)
-                        rampConcurrentUsers(400).to(2200).during(10),
-                        constantConcurrentUsers(2200).during(45),
-
-                        // восстановление
-                        rampConcurrentUsers(2200).to(400).during(10),
-                        constantConcurrentUsers(400).during(120),
-
-                        // спайк 2 (чуть мягче)
-                        rampConcurrentUsers(400).to(2000).during(10),
-                        constantConcurrentUsers(2000).during(45),
-
-                        // финальное восстановление
-                        rampConcurrentUsers(2000).to(400).during(10),
-                        constantConcurrentUsers(400).during(120)
+                        rampConcurrentUsers(START_CONC).to(TARGET_CONC).during(Duration.ofMinutes(RAMP_MIN)),
+                        constantConcurrentUsers(TARGET_CONC).during(Duration.ofMinutes(HOLD_MIN)),
+                        rampConcurrentUsers(TARGET_CONC).to(START_CONC).during(Duration.ofSeconds(RAMPDOWN_SEC))
                 )
-        ).protocols(httpProtocol);
+        )
+                .protocols(httpProtocol)
+                .maxDuration(
+                        Duration.ofMinutes(RAMP_MIN + HOLD_MIN)
+                                .plusSeconds(RAMPDOWN_SEC + 60)
+                )
+                .assertions(
+                        global().responseTime().percentile3().lte(3000)
+                );
     }
 }

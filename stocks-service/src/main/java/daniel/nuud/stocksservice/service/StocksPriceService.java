@@ -22,6 +22,7 @@ public class StocksPriceService {
 
     private final PricesHub pricesHub;
     private final WebClient historicalWebClient;
+    private final WebClient currencyWebClient;
 
     private final Map<String, Deque<StockPrice>> priceMap = new ConcurrentHashMap<>();
     private static final int MAX_ENTRIES = 100;

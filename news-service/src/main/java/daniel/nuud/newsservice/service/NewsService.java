@@ -26,7 +26,6 @@ public class NewsService {
     private final NewsRepository newsRepository;
     private final R2dbcEntityTemplate r2dbcEntityTemplate;
 
-    @SuppressWarnings("unused")
     private Mono<Boolean> skipRefreshReactive(String ticker, Throwable ex) {
         log.warn("Skip news refresh for {}: {}", ticker, ex.toString());
         return Mono.just(false);
@@ -37,13 +36,18 @@ public class NewsService {
         final String ticker = normalize(rawTicker);
 
         return polygonClient.getApiResponse(ticker)
-                .flatMapMany(resp -> Flux.fromIterable(
-                        resp.getResults() == null ? List.of() : resp.getResults()))
-                .map(api -> toEntity(api, ticker))
-                .buffer(100)
-                .concatMap(batch -> Flux.fromIterable(batch)
-                        .flatMap(this::upsertArticle, 8))
-                .hasElements()
+                .map(resp -> resp.getResults() == null ? List.<ApiArticle>of()
+                        : resp.getResults())
+                .flatMap(list -> {
+                    if (list.isEmpty()) return Mono.just(false);
+
+                    return Flux.fromIterable(list)
+                            .map(api -> toEntity(api, ticker))
+                            .buffer(100)
+                            .concatMap(batch -> Flux.fromIterable(batch)
+                                    .flatMap(this::upsertArticle, 8))
+                            .then(Mono.just(true));
+                })
                 .onErrorReturn(false);
     }
 
@@ -86,13 +90,16 @@ public class NewsService {
                 .one();
     }
 
-    @Bulkhead(name = "newsRead", type = Bulkhead.Type.SEMAPHORE)
+    @Bulkhead(name = "newsRead", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipTop5News")
     public Mono<List<Article>> getTop5NewsByTicker(String rawTicker) {
         final String ticker = normalize(rawTicker);
         return newsRepository.findTop5ByTickersOrderByPublishedUtcDesc(ticker)
-                .collectList()
-                .filter(list -> !list.isEmpty())
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("News for " + ticker + " not found")));
+                .collectList();
+    }
+
+    private Mono<Boolean> skipTop5News(String ticker, Throwable ex) {
+        log.warn("Skip news top5 for {}: {}", ticker, ex.toString());
+        return Mono.just(false);
     }
 
     private static String nvl(String v, String d) { return v != null ? v : d; }

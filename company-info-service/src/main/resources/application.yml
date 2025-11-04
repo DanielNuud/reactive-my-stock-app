@@ -46,8 +46,9 @@ server:
 
 logging:
   level:
-    org.springframework.r2dbc.core: DEBUG
     org.springframework.data.r2dbc: DEBUG
+    reactor.netty.http.client: DEBUG
+    org.springframework.web.reactive.function.client.ExchangeFunctions: DEBUG
 
 
 resilience4j:

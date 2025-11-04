@@ -30,9 +30,7 @@ public class PolygonClient {
                 .uri("/v2/reference/news?ticker={ticker}&order=asc&limit=10&sort=published_utc&apiKey={apiKey}",
                         ticker, apiKey)
                 .retrieve()
-                .bodyToMono(ApiResponse.class)
-                .filter(resp -> resp != null && resp.getResults() != null)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("News with ticker " + ticker + " not found")));
+                .bodyToMono(ApiResponse.class);
     }
 
     @SuppressWarnings("unused")

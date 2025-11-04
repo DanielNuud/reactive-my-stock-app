@@ -183,7 +183,9 @@ services:
       - historical-service
     environment:
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SPRING_PROFILES_ACTIVE: ws-mock
+      STOCKS_WS_MOCK: "true"
+      MOCK_WS_PERIOD_MS: "10000"
     networks:
       - stocknet
 

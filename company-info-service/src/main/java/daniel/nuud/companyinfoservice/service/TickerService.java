@@ -30,11 +30,17 @@ public class TickerService {
         final String q = normalize(rawQuery);
 
         return polygonClient.searchTickers(q)
-                .flatMapMany(resp -> Flux.fromIterable(resp.getResults() == null ? java.util.List.of() : resp.getResults()))
-                .map(this::toEntityUpper)
-                .buffer(100)
-                .concatMap(batch -> Flux.fromIterable(batch).flatMap(this::upsertTicker, 8))
-                .hasElements()
+                .map(resp -> resp.getResults() == null ? List.<Ticker>of() : resp.getResults())
+                .flatMap(list -> {
+                    if (list.isEmpty()) {
+                        return Mono.just(false);
+                    }
+                    return Flux.fromIterable(list)
+                            .map(this::toEntityUpper)
+                            .buffer(100)
+                            .concatMap(batch -> Flux.fromIterable(batch).flatMap(this::upsertTicker, 8))
+                            .then(Mono.just(true));
+                })
                 .onErrorReturn(false);
     }
 
@@ -43,9 +49,7 @@ public class TickerService {
     public Mono<List<TickerEntity>> getFromDB(String rawQuery) {
         final String q = normalize(rawQuery);
         return tickerRepository.findTop5ByTickerStartsWithIgnoreCase(q)
-                .collectList()
-                .filter(list -> !list.isEmpty())
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("TickerEntity with " + rawQuery + " not found")));
+                .collectList();
     }
 
     private Mono<TickerEntity> upsertTicker(TickerEntity t) {

@@ -26,9 +26,7 @@ public class NewsController {
                 .flatMap(refreshed -> newsService.getTop5NewsByTicker(ticker)
                         .map(list -> ResponseEntity.ok()
                                 .header("X-Data-Freshness", refreshed ? "fresh" : "stale")
-                                .body(list)))
-                .onErrorResume(ResourceNotFoundException.class,
-                        ex -> Mono.just(ResponseEntity.notFound().build()));
+                                .body(list)));
     }
 
     @GetMapping("/{ticker}/top/db")

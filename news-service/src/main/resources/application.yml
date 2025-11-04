@@ -1,3 +1,7 @@
+external:
+  polygon:
+    base-url: https://api.polygon.io
+
 management:
   endpoints:
     web:
@@ -21,14 +25,16 @@ management:
 
 logging:
   level:
-    org.springframework.r2dbc.core: DEBUG
-    org.springframework.data.r2dbc: DEBUG
+    reactor.netty.http.client: DEBUG
+    org.springframework.web.reactive.function.client.ExchangeFunctions: DEBUG
 
 polygon:
   api:
     key: ${POLYGON_API_KEY}
 
 spring:
+  application:
+    name: news-service
   r2dbc:
     url: r2dbc:postgresql://news-db:5432/news-db-rx
     username: postgres
@@ -46,13 +52,13 @@ resilience4j:
     instances:
       polygonNewsCB:
         sliding-window-type: TIME_BASED
-        sliding-window-size: 30
-        minimum-number-of-calls: 10
-        slow-call-duration-threshold: 1s
-        slow-call-rate-threshold: 60
+        sliding-window-size: 60
+        minimum-number-of-calls: 50
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 70
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
+        permitted-number-of-calls-in-half-open-state: 5
         record-exceptions:
           - org.springframework.web.reactive.function.client.WebClientRequestException
           - org.springframework.web.reactive.function.client.WebClientResponseException
@@ -63,8 +69,8 @@ resilience4j:
   retry:
     instances:
       newsReadSafe:
-        max-attempts: 3
-        wait-duration: 100ms
+        max-attempts: 1
+        wait-duration: 1ms
         enable-exponential-backoff: true
         retry-exceptions:
           - org.springframework.web.reactive.function.client.WebClientRequestException
@@ -75,8 +81,8 @@ resilience4j:
   bulkhead:
     instances:
       newsRead:
-        max-concurrent-calls: 32
-        max-wait-duration: 0ms
-      newsWrite:
-        max-concurrent-calls: 4
-        max-wait-duration: 0ms
+        max-concurrent-calls: 64
+        max-wait-duration: 2s
+      newsFetch:
+        max-concurrent-calls: 20
+        max-wait-duration: 500ms

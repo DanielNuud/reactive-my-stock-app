@@ -22,7 +22,7 @@ public class PolygonMessageProcessor {
             JSONObject json = arr.getJSONObject(i);
             String ev = json.optString("ev", "");
 
-            if ("AM".equals(ev)) {
+            if ("A".equals(ev) || "AM".equals(ev)) {
 
                 String ticker = json.getString("sym");
                 double close = json.getDouble("c");

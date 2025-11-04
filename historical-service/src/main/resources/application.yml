@@ -40,8 +40,6 @@ logging:
   level:
     org.springframework.web.reactive.function.client: TRACE
     reactor.netty.http.client: DEBUG
-    logging.level.reactor.kafka.sender: DEBUG
-    logging.level.org.apache.kafka.clients.producer: INFO
 
 resilience4j:
   circuitbreaker:

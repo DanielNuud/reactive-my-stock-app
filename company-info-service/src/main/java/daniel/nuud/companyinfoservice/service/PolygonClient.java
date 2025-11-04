@@ -47,7 +47,7 @@ public class PolygonClient {
     @Retry(name = "readSafe")
     public Mono<TickerApiResponse> searchTickers(String query) {
         String q = getString(query);
-
+        log.info("Tickers search q='{}'", query);
         return polygonWebClient.get()
                 .uri(uri -> uri.path("/v3/reference/tickers")
                         .queryParam("market", "stocks")
