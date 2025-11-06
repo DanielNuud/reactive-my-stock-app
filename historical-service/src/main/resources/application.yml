@@ -36,10 +36,6 @@ management:
 server:
   port: 8080
 
-logging:
-  level:
-    org.springframework.web.reactive.function.client: TRACE
-    reactor.netty.http.client: DEBUG
 
 resilience4j:
   circuitbreaker:

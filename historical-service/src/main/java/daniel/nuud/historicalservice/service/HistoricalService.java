@@ -5,13 +5,12 @@ import daniel.nuud.historicalservice.dto.StockBarApi;
 import daniel.nuud.historicalservice.dto.StockPrice;
 import daniel.nuud.historicalservice.model.StockBar;
 import daniel.nuud.historicalservice.model.TimePreset;
+import daniel.nuud.historicalservice.model.Period;
 import daniel.nuud.historicalservice.notification.NotificationClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -42,40 +41,46 @@ public class HistoricalService {
     }
 
     public Flux<StockBar> getHistoricalStockBar(String rawTicker, String period, String userKey) {
-        String ticker = normalize(rawTicker);
-        var p = determinePeriod(period);
-        LocalDateTime fromDate = p.with(LocalTime.MIN);
+        final String ticker = normalize(rawTicker);
 
-        TimePreset preset = determinePreset(period);
-        String multiplier = preset.multiplier();
-        String timespan   = preset.timespan();
+        // как в традиционном: from = determinePeriod(toNow).with(MIN), to = toNow
+        final Period p = Period.valueOf(period.toUpperCase(Locale.ROOT));
+        final LocalDateTime fromDate = determinePeriod(p).with(LocalTime.MIN);
+
+        final TimePreset preset = determinePreset(period);
 
         return polygonClient.getAggregates(
                         ticker,
-                        multiplier,
-                        timespan,
+                        preset.multiplier(),
+                        preset.timespan(),
                         fromDate.toLocalDate(),
                         toNow.toLocalDate(),
                         apiKey
                 )
-                .switchIfEmpty(Mono.defer(() ->
-                        notifyFailed(userKey, ticker, period, null)
-                                .then(Mono.error(new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "No bars for " + ticker + " (" + period + ")")))))
-                .flatMapMany(resp -> toBars(resp, ticker))
-                .concatWith(appendLatestIfAny(ticker))
-                .concatWith(Mono.defer(() ->
-                        notifyReady(userKey, ticker, period)).then(Mono.empty()))
-                .onErrorResume(ex ->
-                        notifyFailed(userKey, ticker, period,
-                                ex instanceof Exception ? (Exception) ex : new RuntimeException(ex))
-                                .then(Mono.error(new ResponseStatusException(
-                                        HttpStatus.BAD_GATEWAY,
-                                        "Upstream error",
-                                        ex))))
-                .limitRate(300);
-
+                .flatMapMany(resp -> {
+                    if (resp != null && resp.getResults() != null) {
+                        // 1) превращаем результаты в Flux баров
+                        Flux<StockBar> bars = Flux.fromIterable(resp.getResults())
+                                .map(dto -> mapToEntity(ticker, dto));
+                        // 2) добавляем последний «реалтайм»-бар (как в традиционном)
+                        bars = bars.concatWith(appendLatestIfAny(ticker));
+                        // 3) шлём уведомление об успехе (fire-and-forget)
+                        return bars.concatWith(
+                                Mono.defer(() -> notifyReady(userKey, ticker, period)
+                                        .onErrorResume(e -> { log.warn("notifyReady error: {}", e.toString()); return Mono.empty(); })
+                                ).then(Mono.empty())
+                        );
+                    }
+                    return Mono.defer(() -> notifyFailed(userKey, ticker, period, null)
+                            .onErrorResume(e -> { log.warn("notifyFailed error: {}", e.toString()); return Mono.empty(); })
+                    ).thenMany(Flux.empty());
+                })
+                .onErrorResume(e -> {
+                    log.error("Error while fetching stock bar", e);
+                    return notifyFailed(userKey, ticker, period, e)
+                            .onErrorResume(err -> Mono.empty()) // не даём уведомление «уронить» поток
+                            .thenMany(Flux.empty());
+                });
     }
 
     private Mono<Void> notifyReady(String userKey, String ticker, String period) {
@@ -88,14 +93,14 @@ public class HistoricalService {
         );
     }
 
-    private Mono<Void> notifyFailed(String userKey, String ticker, String period, Exception cause) {
-           return notificationClient.sendNotification(
-                    userKey,
-                    "Chart fetch failed",
-                    "Please try again later.",
-                    "ERROR",
-                    "CHART:FAILED:" + ticker.toUpperCase() + ":" + period.toUpperCase()
-            );
+    private Mono<Void> notifyFailed(String userKey, String ticker, String period, Throwable cause) {
+        return notificationClient.sendNotification(
+                userKey,
+                "Chart fetch failed",
+                "Please try again later.",
+                "ERROR",
+                "CHART:FAILED:" + ticker.toUpperCase() + ":" + period.toUpperCase()
+        );
     }
 
 
@@ -163,15 +168,14 @@ public class HistoricalService {
         };
     }
 
-    private LocalDateTime determinePeriod(String period) {
-        LocalDateTime nowMax = toNow;
-        return switch (daniel.nuud.historicalservice.model.Period.valueOf(period.toUpperCase(Locale.ROOT))) {
-            case TODAY -> nowMax;
-            case YESTERDAY -> nowMax.minusDays(1);
-            case ONE_WEEK -> nowMax.minusWeeks(1);
-            case ONE_MONTH -> nowMax.minusMonths(1);
-            case ONE_YEAR -> nowMax.minusYears(1);
-            case FIVE_YEARS -> nowMax.minusYears(5);
+    private LocalDateTime determinePeriod(Period from) {
+        return switch (from) {
+            case TODAY       -> toNow;
+            case YESTERDAY   -> toNow.minusDays(1);
+            case ONE_WEEK    -> toNow.minusWeeks(1);
+            case ONE_MONTH   -> toNow.minusMonths(1);
+            case ONE_YEAR    -> toNow.minusYears(1);
+            case FIVE_YEARS  -> toNow.minusYears(5);
         };
     }
 

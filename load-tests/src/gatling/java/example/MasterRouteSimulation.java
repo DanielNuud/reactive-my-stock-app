@@ -42,7 +42,6 @@ public class MasterRouteSimulation extends Simulation {
                                             .get("/api/tickers/search")
                                             .queryParam("query", "#{q}")
                                             .check(status().is(200))
-                                            .check(jsonPath("$[0].symbol").optional())
                             )
             );
 
@@ -103,92 +102,37 @@ public class MasterRouteSimulation extends Simulation {
         );
     }
 
-    private static final String STOMP_CONNECT =
-            "CONNECT\n" +
-                    "accept-version:1.2\n" +
-                    "host:stock-app\n" +
-                    "heart-beat:0,0\n" +
-                    "\n\u0000";
-
-    private static String stompSubscribeFrame(String subId, String ticker) {
-        return "SUBSCRIBE\n" +
-                "id:" + subId + "\n" +
-                "destination:/topic/stocks/" + ticker + "\n" +
-                "ack:auto\n" +
-                "\n\u0000";
-    }
-
     private ChainBuilder wsSubscribeAwaitAndClose =
-                    exec(
+            exec(
                     ws("WS open")
-                            .connect(WS_BASE_URL + "/ws/stocks?userKey=#{userKey}")
+                            .connect(WS_BASE_URL + "/ws/prices?userKey=#{userKey}")
                             .header("Origin", BASE_URL)
                             .header("Cookie", "userKey=#{userKey}")
+            ) 
+                    .exec(
+                            http("POST subscribe (REST)")
+                                    .post("/api/stocks/subscribe/#{ticker}")
+                                    .header("X-User-Key", "#{userKey}")
+                                    .check(status().in(200, 201, 202, 204))
                     )
                     .exec(
-                            ws("STOMP CONNECT")
-                                    .sendText(STOMP_CONNECT)
-                                    .await(12)
+                            ws("WS await first price for #{ticker}")
+                                    .sendText("noop")                                  // просто чтобы открыть цепочку
+                                    .await(Duration.ofSeconds(13))
                                     .on(
-                                            ws.checkTextMessage("CONNECTED")
-                                                    .matching(regex("(?s)^CONNECTED\\b.*"))
+                                            ws.checkTextMessage("first price array")
+                                                    .check(jsonPath("$[0].sym").ofString().transform(String::toUpperCase).is("#{ticker}"))
+                                                    .check(jsonPath("$[0].c").ofDouble().saveAs("wsPrice"))
+                                                    .check(jsonPath("$[0].s").ofLong().saveAs("wsTsStart"))
+                                                    .check(jsonPath("$[0].e").ofLong().saveAs("wsTsEnd"))
                                     )
-                    )
-                            .exec(
-                                    http("POST subscribe (REST)")
-                                            .post("/api/stocks/subscribe/#{ticker}")
-                                            .header("X-User-Key", "#{userKey}")
-                                            .check(status().in(200, 201, 204))
-                            )
 
-                            .exec(session -> session.set("subId", java.util.UUID.randomUUID().toString()))
-                    .exec(
-                            ws("STOMP SUBSCRIBE /topic/stocks/#{ticker}")
-                                    .sendText(session -> stompSubscribeFrame(session.getString("subId"), session.getString("ticker")))
-                                    .await(10)
-                                    .on(
-                                            ws.checkTextMessage("MESSAGE")
-                                                    .matching(regex("(?s)^MESSAGE\\b.*destination:/topic/stocks/#{ticker}.*"))
-                                                    .check(regex("(?s)\\n\\n(\\{.*?})\\u0000?").saveAs("stompBody"))
-                                    )
                     )
-
-                    .exec(session -> {
-                        String body = session.getString("stompBody");
-                        String tkr  = session.getString("ticker");
-                        if (body != null) {
-                            java.util.regex.Matcher m =
-                                    java.util.regex.Pattern
-                                            .compile("\"ticker\"\\s*:\\s*\"" + java.util.regex.Pattern.quote(tkr) + "\".*?\"price\"\\s*:\\s*([0-9.]+)")
-                                            .matcher(body);
-                            if (m.find()) {
-                                session = session.set("lastClose", m.group(1));
-                            } else {
-//                                System.out.println("WARN: body doesn't contain expected ticker/price: " + body);
-                            }
-//                            System.out.println("STOMP BODY for " + tkr + " => " + body);
-                        } else {
-//                            System.out.println("WARN: no STOMP body received");
-                        }
-                        return session;
-                    })
                     .exec(
-                            http("DELETE unsubscribe")
-                                    .delete("/api/stocks/subscribe/#{ticker}")
-                                    .check(status().in(200, 204))
-                    )
-
-                    .exec(
-                            ws("STOMP UNSUBSCRIBE /topic/stocks/#{ticker}")
-                                    .sendText(session ->
-                                            "UNSUBSCRIBE\n" +
-                                                    "id:" + session.getString("subId") + "\n\n\u0000"
-                                    )
-                    )
-
-                    .exec(
-                            ws("STOMP DISCONNECT")
-                                    .sendText("DISCONNECT\n\n\u0000")
+                            http("POST unsubscribe (REST)")
+                                    .post("/api/stocks/unsubscribe/#{ticker}")
+                                    .header("X-User-Key", "#{userKey}")
+                                    .check(status().in(200, 202, 204))
                     )
                     .exec(ws("WS close").close());
 

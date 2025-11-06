@@ -48,6 +48,7 @@ dependencies {
     runtimeOnly 'org.postgresql:r2dbc-postgresql'
     implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
     implementation 'io.r2dbc:r2dbc-pool'
+    runtimeOnly("io.projectreactor.tools:blockhound:1.0.13.RELEASE")
 }
 
 tasks.named('test') {

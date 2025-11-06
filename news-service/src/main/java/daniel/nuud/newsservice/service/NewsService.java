@@ -36,16 +36,13 @@ public class NewsService {
         final String ticker = normalize(rawTicker);
 
         return polygonClient.getApiResponse(ticker)
-                .map(resp -> resp.getResults() == null ? List.<ApiArticle>of()
-                        : resp.getResults())
+                .map(resp -> resp.getResults() == null ? List.<ApiArticle>of() : resp.getResults())
                 .flatMap(list -> {
                     if (list.isEmpty()) return Mono.just(false);
 
                     return Flux.fromIterable(list)
                             .map(api -> toEntity(api, ticker))
-                            .buffer(100)
-                            .concatMap(batch -> Flux.fromIterable(batch)
-                                    .flatMap(this::upsertArticle, 8))
+                            .concatMap(this::upsertArticle)
                             .then(Mono.just(true));
                 })
                 .onErrorReturn(false);
@@ -90,7 +87,6 @@ public class NewsService {
                 .one();
     }
 
-    @Bulkhead(name = "newsRead", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipTop5News")
     public Mono<List<Article>> getTop5NewsByTicker(String rawTicker) {
         final String ticker = normalize(rawTicker);
         return newsRepository.findTop5ByTickersOrderByPublishedUtcDesc(ticker)

@@ -60,7 +60,7 @@ public class WebSocketClient {
         open();
     }
 
-    private synchronized void ensureConnected() {
+    private void ensureConnected() {
         if (mockMode) return;
         Disposable d = connectionRef.get();
         if (d == null || d.isDisposed()) {
@@ -75,10 +75,10 @@ public class WebSocketClient {
         if (d != null) d.dispose();
     }
 
-    public synchronized void subscribeTo(String ticker) {
+    public void subscribeTo(String ticker) {
         String t = Objects.requireNonNull(ticker).toUpperCase();
         if (mockMode) {
-            activeTickers.add(t); // MOCK
+            activeTickers.add(t);
             log.info("MOCK: subscribe {}", t);
             return;
         }
@@ -96,7 +96,7 @@ public class WebSocketClient {
         log.debug("Queue subscribe: {}", s);
     }
 
-    public synchronized void unsubscribe(String ticker) {
+    public void unsubscribe(String ticker) {
         if (ticker == null) return;
         String t = ticker.toUpperCase();
 

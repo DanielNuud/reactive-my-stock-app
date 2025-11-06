@@ -1,14 +1,14 @@
 services:
 
-  frontend:
-    build: ./frontend
-    container_name: frontend
-    ports:
-      - "5173:80"
-    depends_on:
-      - api-gateway
-    networks:
-      - stocknet
+#  frontend:
+#    build: ./frontend
+#    container_name: frontend
+#    ports:
+#      - "5173:80"
+#    depends_on:
+#      - api-gateway
+#    networks:
+#      - stocknet
 
   company-db:
     image: postgres:16
@@ -224,7 +224,7 @@ services:
       WS_BASE_URL: ws://api-gateway:8080
       START_CONC: "100"
       TARGET_CONC: "1600"
-      RAMP_MIN: "5"
+      RAMP_MIN: "3"
       HOLD_MIN: "60"
       RAMPDOWN_SEC: "0"
     command: >

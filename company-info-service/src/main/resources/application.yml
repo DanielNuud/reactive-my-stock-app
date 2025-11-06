@@ -44,11 +44,6 @@ spring:
 server:
   port: 8080
 
-logging:
-  level:
-    org.springframework.data.r2dbc: DEBUG
-    reactor.netty.http.client: DEBUG
-    org.springframework.web.reactive.function.client.ExchangeFunctions: DEBUG
 
 
 resilience4j:
@@ -64,13 +59,12 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 5
         record-exceptions:
-          - org.springframework.web.reactive.function.client.WebClientRequestException
-          - org.springframework.web.reactive.function.client.WebClientResponseException
-          - java.util.concurrent.TimeoutException
-          - io.netty.channel.ConnectTimeoutException
-          - reactor.netty.http.client.PrematureCloseException
-          - java.lang.IllegalStateException
+          - java.io.IOException
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
         ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+          - java.util.concurrent.TimeoutException
 
   retry:
     instances:
@@ -80,24 +74,24 @@ resilience4j:
         enable-exponential-backoff: true
         retry-exceptions:
           - org.springframework.web.reactive.function.client.WebClientRequestException
-          - java.util.concurrent.TimeoutException
           - io.netty.channel.ConnectTimeoutException
-          - reactor.netty.http.client.PrematureCloseException
-          - java.lang.IllegalStateException
+          - java.io.IOException
+          - io.netty.handler.timeout.ReadTimeoutException
         ignore-exceptions:
           - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.util.concurrent.TimeoutException
 
   bulkhead:
     instances:
       companyRead:
         max-concurrent-calls: 128
         max-wait-duration:
-          seconds: 0
+          seconds: 200ms
       companyWrite:
         max-concurrent-calls: 30
         max-wait-duration:
-          seconds: 0
+          seconds: 200ms
       companySearch:
         max-concurrent-calls: 256
         max-wait-duration:
-          seconds: 0
+          seconds: 200ms

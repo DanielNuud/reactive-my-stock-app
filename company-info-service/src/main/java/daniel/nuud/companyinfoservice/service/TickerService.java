@@ -32,20 +32,17 @@ public class TickerService {
         return polygonClient.searchTickers(q)
                 .map(resp -> resp.getResults() == null ? List.<Ticker>of() : resp.getResults())
                 .flatMap(list -> {
-                    if (list.isEmpty()) {
-                        return Mono.just(false);
-                    }
+                    if (list.isEmpty()) return Mono.just(false);
+
                     return Flux.fromIterable(list)
                             .map(this::toEntityUpper)
-                            .buffer(100)
-                            .concatMap(batch -> Flux.fromIterable(batch).flatMap(this::upsertTicker, 8))
+                            .concatMap(this::upsertTicker)
                             .then(Mono.just(true));
                 })
                 .onErrorReturn(false);
     }
 
     @Cacheable(value = "tickerSuggest", key = "#rawQuery", sync = true)
-    @Bulkhead(name = "companyRead", type = Bulkhead.Type.SEMAPHORE)
     public Mono<List<TickerEntity>> getFromDB(String rawQuery) {
         final String q = normalize(rawQuery);
         return tickerRepository.findTop5ByTickerStartsWithIgnoreCase(q)

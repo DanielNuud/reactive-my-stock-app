@@ -18,21 +18,19 @@ public class StocksController {
 
     @PostMapping("/subscribe/{ticker}")
     public Mono<ResponseEntity<Void>> subscribe(@PathVariable String ticker,
-                                                @RequestHeader(value = "X-User-Key", required = false) @Nullable String userKey) {
+                                                @RequestHeader(value="X-User-Key", required=false) String userKey) {
         return Mono.fromRunnable(() -> {
-            String user = (userKey == null || userKey.isBlank()) ? "guest" : userKey;
-            activeSubscription.set(user, ticker);
-            polygonClient.subscribeTo(ticker);
+            boolean first = activeSubscription.subscribe(userKey, ticker);
+            if (first) polygonClient.subscribeTo(ticker);   // 0 -> 1
         }).thenReturn(ResponseEntity.accepted().build());
     }
 
     @PostMapping("/unsubscribe/{ticker}")
     public Mono<ResponseEntity<Void>> unsubscribe(@PathVariable String ticker,
-                                                  @RequestHeader(value = "X-User-Key", required = false) @Nullable String userKey) {
+                                                  @RequestHeader(value="X-User-Key", required=false) String userKey) {
         return Mono.fromRunnable(() -> {
-            String user = (userKey == null || userKey.isBlank()) ? "guest" : userKey;
-            activeSubscription.set(user, ticker);
-            polygonClient.unsubscribe(ticker);
+            boolean last = activeSubscription.unsubscribe(userKey, ticker);
+            if (last) polygonClient.unsubscribe(ticker); // 1 -> 0
         }).thenReturn(ResponseEntity.accepted().build());
     }
 }

@@ -22,7 +22,6 @@ public class StocksPriceService {
 
     private final PricesHub pricesHub;
     private final WebClient historicalWebClient;
-    private final WebClient currencyWebClient;
 
     private final Map<String, Deque<StockPrice>> priceMap = new ConcurrentHashMap<>();
     private static final int MAX_ENTRIES = 100;
@@ -47,7 +46,8 @@ public class StocksPriceService {
                 .onErrorResume(e -> Mono.empty())
                 .subscribe();
 
-        pricesHub.emit(dto);
+        log.info("EMIT {}", stockPrice.getTicker());
+        pricesHub.emit(stockPrice.getTicker(), dto);
 
 //        if (targetCurrency != null && !targetCurrency.equals("USD")) {
 //            broadcastStockBar(stockPrice, targetCurrency);
