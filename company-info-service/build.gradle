@@ -32,7 +32,7 @@ ext {
 }
 
 dependencies {
-    runtimeOnly("io.projectreactor.tools:blockhound:1.0.13.RELEASE")
+    implementation 'io.projectreactor.tools:blockhound:1.0.15.RELEASE'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'

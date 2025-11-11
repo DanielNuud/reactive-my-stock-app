@@ -1,5 +1,6 @@
 package daniel.nuud.currencyservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import daniel.nuud.currencyservice.dto.RateResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Component
 @RequiredArgsConstructor
@@ -16,12 +18,13 @@ import reactor.core.publisher.Mono;
 public class FreeCurrencyClient {
 
     private final WebClient freeCurrencyWebClient;
+    private final ObjectMapper mapper;
 
     @Value("${freecurrency.api.key}")
     private String apiKey;
 
-    @CircuitBreaker(name = "fxCB", fallbackMethod = "fallbackEmpty")
-    @Retry(name = "fxReadSafe")
+//    @CircuitBreaker(name = "fxCB", fallbackMethod = "fallbackEmpty")
+//    @Retry(name = "fxReadSafe")
     public Mono<RateResponse> getRates(String base) {
         String b = base == null ? "" : base.trim().toUpperCase();
 
@@ -30,11 +33,12 @@ public class FreeCurrencyClient {
                         .queryParam("apikey", apiKey)
                         .queryParam("base_currency", b)
                         .build())
-                .exchangeToMono(resp -> {
-                    if (resp.statusCode().is2xxSuccessful()) return resp.bodyToMono(RateResponse.class);
-                    if (resp.statusCode().is4xxClientError()) return Mono.empty();
-                    return resp.createException().flatMap(Mono::error);
-                });
+                .retrieve()
+                .bodyToMono(byte[].class)
+                .flatMap(bytes ->
+                        Mono.fromCallable(() -> mapper.readValue(bytes, RateResponse.class))
+                                .subscribeOn(Schedulers.boundedElastic())
+                );
     }
 
     @SuppressWarnings("unused")

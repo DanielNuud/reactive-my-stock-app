@@ -33,33 +33,23 @@ public class WebClientConfig {
     @Bean
     ConnectionProvider histConnectionProvider() {
         return ConnectionProvider.builder("hist-http")
-                .maxConnections(2000)                       // под 1–1.6k VU
-                .pendingAcquireMaxCount(4096)               // очередь ожидания
-                .pendingAcquireTimeout(Duration.ofSeconds(10))
-                .evictInBackground(Duration.ofSeconds(30))
-                .lifo()
+                .maxConnections(2000)
                 .metrics(true)
                 .build();
     }
 
-    // 2) HttpClient с таймаутами
     @Bean
     HttpClient histHttpClient(ConnectionProvider provider) {
         return HttpClient.create(provider)
                 .compress(true)
-                .responseTimeout(Duration.ofSeconds(15))         // было 5 — мало для аггрегатов
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000)
-                .doOnConnected(c -> c
-                        .addHandlerLast(new ReadTimeoutHandler(0))   // убери дублирующий socket timeout
-                        .addHandlerLast(new WriteTimeoutHandler(0))); // socket write
+                .metrics(true, s -> s);
+
     }
 
-    // 3) Общий builder с нашим коннектором
     @Bean
     WebClient.Builder histWebClientBuilder(HttpClient httpClient) {
         return WebClient.builder()
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .defaultHeader("Connection", "keep-alive");
+                .clientConnector(new ReactorClientHttpConnector(httpClient));
     }
 
     @Bean

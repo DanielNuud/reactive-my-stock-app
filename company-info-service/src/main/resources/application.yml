@@ -24,7 +24,15 @@ management:
       application: ${spring.application.name}
 
 spring:
+  application:
+    name: company-service
+  main:
+    web-application-type: reactive
   r2dbc:
+    pool:
+      enabled: true
+      max-size: 192
+      max-idle-time: 30s
     url: r2dbc:postgresql://company-db:5432/company-info-db-rx
     username: postgres
     password: postgres
@@ -46,52 +54,75 @@ server:
 
 
 
-resilience4j:
-  circuitbreaker:
-    instances:
-      polygonCompanyCB:
-        sliding-window-type: TIME_BASED
-        sliding-window-size: 60
-        minimum-number-of-calls: 50
-        slow-call-duration-threshold: 2s
-        slow-call-rate-threshold: 70
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 5
-        record-exceptions:
-          - java.io.IOException
-          - org.springframework.web.client.HttpServerErrorException
-          - org.springframework.web.client.ResourceAccessException
-        ignore-exceptions:
-          - org.springframework.web.client.HttpClientErrorException
-          - java.util.concurrent.TimeoutException
-
-  retry:
-    instances:
-      readSafe:
-        max-attempts: 2
-        wait-duration: 150ms
-        enable-exponential-backoff: true
-        retry-exceptions:
-          - org.springframework.web.reactive.function.client.WebClientRequestException
-          - io.netty.channel.ConnectTimeoutException
-          - java.io.IOException
-          - io.netty.handler.timeout.ReadTimeoutException
-        ignore-exceptions:
-          - org.springframework.web.reactive.function.client.WebClientResponseException
-          - java.util.concurrent.TimeoutException
-
-  bulkhead:
-    instances:
-      companyRead:
-        max-concurrent-calls: 128
-        max-wait-duration:
-          seconds: 200ms
-      companyWrite:
-        max-concurrent-calls: 30
-        max-wait-duration:
-          seconds: 200ms
-      companySearch:
-        max-concurrent-calls: 256
-        max-wait-duration:
-          seconds: 200ms
+#resilience4j:
+#  circuitbreaker:
+#    instances:
+#      polygonCompanyCB:
+#        sliding-window-type: TIME_BASED
+#        sliding-window-size: 60
+#        minimum-number-of-calls: 50
+#        slow-call-duration-threshold: 2s
+#        slow-call-rate-threshold: 70
+#        failure-rate-threshold: 50
+#        wait-duration-in-open-state: 10s
+#        permitted-number-of-calls-in-half-open-state: 5
+#        record-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientRequestException
+#          - java.util.concurrent.TimeoutException
+#          - java.net.SocketTimeoutException
+#          - java.net.ConnectException
+#          - java.net.UnknownHostException
+#          - io.netty.handler.timeout.ReadTimeoutException
+#          - reactor.netty.http.client.PrematureCloseException
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.UnprocessableEntity
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.InternalServerError   # 500
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadGateway          # 502
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable  # 503
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.GatewayTimeout
+#        ignore-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Unauthorized
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Forbidden
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.NotFound
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Conflict
+#
+#  retry:
+#    instances:
+#      readSafe:
+#        max-attempts: 2
+#        wait-duration: 150ms
+#        enable-exponential-backoff: true
+#        retry-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientRequestException
+#          - java.util.concurrent.TimeoutException
+#          - java.net.SocketTimeoutException
+#          - java.net.ConnectException
+#          - java.net.UnknownHostException
+#          - io.netty.handler.timeout.ReadTimeoutException
+#          - reactor.netty.http.client.PrematureCloseException
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.InternalServerError   # 500
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadGateway          # 502
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable  # 503
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.GatewayTimeout
+#        ignore-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Unauthorized
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Forbidden
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.NotFound
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Conflict
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.UnprocessableEntity
+#
+#  bulkhead:
+#    instances:
+#      companyRead:
+#        max-concurrent-calls: 128
+#        max-wait-duration:
+#          seconds: 200ms
+#      companyWrite:
+#        max-concurrent-calls: 30
+#        max-wait-duration:
+#          seconds: 200ms
+#      companySearch:
+#        max-concurrent-calls: 256
+#        max-wait-duration:
+#          seconds: 200ms

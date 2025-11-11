@@ -16,7 +16,7 @@ public class RatesProvider {
 
     private final FreeCurrencyClient client;
 
-    @Cacheable(value = "fxRates", key = "#base.toUpperCase()", sync = true)
+//    @Cacheable(value = "fxRates", key = "#base.toUpperCase()", sync = true)
     public Mono<Map<String, String>> getRates(String base) {
         String b = base == null ? "" : base.trim().toUpperCase();
 

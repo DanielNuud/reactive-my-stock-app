@@ -23,19 +23,21 @@ management:
       export:
         enabled: true
 
-logging:
-  level:
-    reactor.netty.http.client: DEBUG
-    org.springframework.web.reactive.function.client.ExchangeFunctions: DEBUG
 
 polygon:
   api:
     key: ${POLYGON_API_KEY}
 
 spring:
+  main:
+    web-application-type: reactive
   application:
     name: news-service
   r2dbc:
+    pool:
+      enabled: true
+      max-size: 65
+      max-idle-time: 15s
     url: r2dbc:postgresql://news-db:5432/news-db-rx
     username: postgres
     password: postgres
@@ -47,42 +49,69 @@ spring:
 server:
   port: 8080
 
-resilience4j:
-  circuitbreaker:
-    instances:
-      polygonNewsCB:
-        sliding-window-type: TIME_BASED
-        sliding-window-size: 60
-        minimum-number-of-calls: 50
-        slow-call-duration-threshold: 2s
-        slow-call-rate-threshold: 70
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 5
-        record-exceptions:
-          - org.springframework.web.reactive.function.client.WebClientRequestException
-          - org.springframework.web.reactive.function.client.WebClientResponseException
-          - java.util.concurrent.TimeoutException
-          - io.netty.channel.ConnectTimeoutException
-          - reactor.netty.http.client.PrematureCloseException
-
-  retry:
-    instances:
-      newsReadSafe:
-        max-attempts: 1
-        wait-duration: 1ms
-        enable-exponential-backoff: true
-        retry-exceptions:
-          - org.springframework.web.reactive.function.client.WebClientRequestException
-          - java.util.concurrent.TimeoutException
-          - io.netty.channel.ConnectTimeoutException
-          - reactor.netty.http.client.PrematureCloseException
-
-  bulkhead:
-    instances:
-      newsRead:
-        max-concurrent-calls: 64
-        max-wait-duration: 2s
-      newsFetch:
-        max-concurrent-calls: 20
-        max-wait-duration: 500ms
+#resilience4j:
+#  circuitbreaker:
+#    instances:
+#      polygonNewsCB:
+#        sliding-window-type: TIME_BASED
+#        sliding-window-size: 60
+#        minimum-number-of-calls: 50
+#        slow-call-duration-threshold: 2s
+#        slow-call-rate-threshold: 70
+#        failure-rate-threshold: 50
+#        wait-duration-in-open-state: 10s
+#        permitted-number-of-calls-in-half-open-state: 5
+#        record-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientRequestException
+#          - java.util.concurrent.TimeoutException
+#          - java.net.SocketTimeoutException
+#          - java.net.ConnectException
+#          - java.net.UnknownHostException
+#          - io.netty.handler.timeout.ReadTimeoutException
+#          - reactor.netty.http.client.PrematureCloseException
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.UnprocessableEntity
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.InternalServerError   # 500
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadGateway          # 502
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable  # 503
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.GatewayTimeout
+#        ignore-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Unauthorized
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Forbidden
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.NotFound
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Conflict
+#
+#  retry:
+#    instances:
+#      newsReadSafe:
+#        max-attempts: 2
+#        wait-duration: 200ms
+#        enable-exponential-backoff: true
+#        retry-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientRequestException
+#          - java.util.concurrent.TimeoutException
+#          - java.net.SocketTimeoutException
+#          - java.net.ConnectException
+#          - java.net.UnknownHostException
+#          - io.netty.handler.timeout.ReadTimeoutException
+#          - reactor.netty.http.client.PrematureCloseException
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.InternalServerError   # 500
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadGateway          # 502
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable  # 503
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.GatewayTimeout
+#        ignore-exceptions:
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Unauthorized
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Forbidden
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.NotFound
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.Conflict
+#          - org.springframework.web.reactive.function.client.WebClientResponseException.UnprocessableEntity
+#
+#  bulkhead:
+#    instances:
+#      newsRead:
+#        max-concurrent-calls: 64
+#        max-wait-duration: 0s
+#      newsFetch:
+#        max-concurrent-calls: 64
+#        max-wait-duration: 0ms

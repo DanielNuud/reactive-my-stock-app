@@ -1,5 +1,6 @@
 package daniel.nuud.newsservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import daniel.nuud.newsservice.dto.ApiResponse;
 import daniel.nuud.newsservice.exception.ResourceNotFoundException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.Locale;
 
@@ -19,24 +21,29 @@ import java.util.Locale;
 public class PolygonClient {
 
     private final WebClient webClient;
+    private final ObjectMapper mapper;
 
     @Value("${polygon.api.key}")
     private String apiKey;
 
-    @CircuitBreaker(name = "polygonNewsDB", fallbackMethod = "skipRefreshReactive")
-    @Retry(name = "readSafe")
+//    @CircuitBreaker(name = "polygonNewsDB", fallbackMethod = "skipRefreshReactive")
+//    @Retry(name = "readSafe")
     public Mono<ApiResponse> getApiResponse(String ticker) {
         return webClient.get()
                 .uri("/v2/reference/news?ticker={ticker}&order=asc&limit=10&sort=published_utc&apiKey={apiKey}",
                         ticker, apiKey)
                 .retrieve()
-                .bodyToMono(ApiResponse.class);
+                .bodyToMono(byte[].class)
+                .flatMap(bytes ->
+                        Mono.fromCallable(() -> mapper.readValue(bytes, ApiResponse.class))
+                                .subscribeOn(Schedulers.boundedElastic())
+                );
     }
 
     @SuppressWarnings("unused")
-    private Mono<Boolean> skipRefreshReactive(String ticker, Throwable ex) {
+    public Mono<ApiResponse> skipRefreshReactive(String ticker, Throwable ex) {
         log.warn("Skip tickers refresh for '{}': {}", ticker, ex.toString());
-        return Mono.just(false);
+        return Mono.empty();
     }
 
 }

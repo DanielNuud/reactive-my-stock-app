@@ -27,7 +27,11 @@ management:
       export:
         enabled: true
 
-#spring:
+spring:
+  application:
+    name: historical-service
+  main:
+    web-application-type: reactive
 #  data:
 #    mongodb:
 #      database: historical-db

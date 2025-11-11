@@ -35,9 +35,8 @@ public class NotificationService {
             insert into notifications as n
                 (user_key, title, message, level, dedupe_key)
             values ($1, $2, $3, $4, $5)
-            on conflict (dedupe_key) do update
-                set dedupe_key = excluded.dedupe_key 
-            returning n.id
+            ON CONFLICT (dedupe_key) DO NOTHING
+            RETURNING id
             """;
 
         return r2dbc.getDatabaseClient().sql(sql)
@@ -52,18 +51,17 @@ public class NotificationService {
 
     public Flux<NotificationResponse> listNotifications(String userKey, @Nullable Instant since) {
         Flux<Notification> flux = (since == null)
-                ? notificationRepository.findByUserKeyOrderByCreatedAtDesc(userKey).take(200)
-                : notificationRepository.findByUserKeyAndCreatedAtAfterOrderByCreatedAtDesc(userKey, since);
+                ? notificationRepository.findTopByUserKey(userKey, 100)
+                : notificationRepository.findTopByUserKeySince(userKey, since, 100);
 
         return flux.map(this::toResponse);
     }
 
     public Mono<Void> markNotificationRead(Long id) {
-        return notificationRepository.findById(id)
-                .flatMap(n -> {
-                    n.setReadFlag(true);
-                    return notificationRepository.save(n);
-                })
+        return r2dbc.getDatabaseClient()
+                .sql("update notifications set read_flag = true where id = $1")
+                .bind("$1", id)
+                .fetch().rowsUpdated()
                 .then();
     }
 

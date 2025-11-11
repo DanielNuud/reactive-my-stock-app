@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.*;
 import java.util.*;
@@ -43,43 +44,32 @@ public class HistoricalService {
     public Flux<StockBar> getHistoricalStockBar(String rawTicker, String period, String userKey) {
         final String ticker = normalize(rawTicker);
 
-        // как в традиционном: from = determinePeriod(toNow).with(MIN), to = toNow
         final Period p = Period.valueOf(period.toUpperCase(Locale.ROOT));
         final LocalDateTime fromDate = determinePeriod(p).with(LocalTime.MIN);
-
         final TimePreset preset = determinePreset(period);
+        final LocalDate toNow = LocalDate.now(ZoneOffset.UTC);
 
         return polygonClient.getAggregates(
                         ticker,
                         preset.multiplier(),
                         preset.timespan(),
                         fromDate.toLocalDate(),
-                        toNow.toLocalDate(),
+                        toNow,
                         apiKey
                 )
+                .publishOn(Schedulers.boundedElastic())
                 .flatMapMany(resp -> {
-                    if (resp != null && resp.getResults() != null) {
-                        // 1) превращаем результаты в Flux баров
-                        Flux<StockBar> bars = Flux.fromIterable(resp.getResults())
-                                .map(dto -> mapToEntity(ticker, dto));
-                        // 2) добавляем последний «реалтайм»-бар (как в традиционном)
-                        bars = bars.concatWith(appendLatestIfAny(ticker));
-                        // 3) шлём уведомление об успехе (fire-and-forget)
-                        return bars.concatWith(
-                                Mono.defer(() -> notifyReady(userKey, ticker, period)
-                                        .onErrorResume(e -> { log.warn("notifyReady error: {}", e.toString()); return Mono.empty(); })
-                                ).then(Mono.empty())
-                        );
-                    }
-                    return Mono.defer(() -> notifyFailed(userKey, ticker, period, null)
-                            .onErrorResume(e -> { log.warn("notifyFailed error: {}", e.toString()); return Mono.empty(); })
-                    ).thenMany(Flux.empty());
+                    if (resp == null || resp.getResults() == null) return Flux.empty();
+                    return Flux.fromIterable(resp.getResults())
+                            .map(dto -> mapToEntity(ticker, dto));
                 })
-                .onErrorResume(e -> {
-                    log.error("Error while fetching stock bar", e);
-                    return notifyFailed(userKey, ticker, period, e)
-                            .onErrorResume(err -> Mono.empty()) // не даём уведомление «уронить» поток
-                            .thenMany(Flux.empty());
+                .concatWith(appendLatestIfAny(ticker))
+                .doOnComplete(() -> notifyReady(userKey, ticker, period)
+                        .doOnError(e -> log.warn("notifyReady error: {}", e.toString()))
+                        .subscribe())
+                .onErrorResume(e -> { log.error("Error while fetching stock bar", e);
+                    notifyFailed(userKey, ticker, period, e).subscribe();
+                    return Flux.empty();
                 });
     }
 

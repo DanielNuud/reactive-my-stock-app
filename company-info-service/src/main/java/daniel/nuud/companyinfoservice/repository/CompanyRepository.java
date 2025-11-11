@@ -7,6 +7,6 @@ import reactor.core.publisher.Mono;
 
 @Repository
 public interface CompanyRepository extends R2dbcRepository<Company, String> {
-    Mono<Company> findByTickerIgnoreCase(String ticker);
+    Mono<Company> findByTicker(String ticker);
     Mono<Boolean> existsByTickerIgnoreCase(String ticker);
 }

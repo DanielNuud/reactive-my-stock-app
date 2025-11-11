@@ -7,5 +7,5 @@ import reactor.core.publisher.Flux;
 
 @Repository
 public interface TickerRepository extends R2dbcRepository<TickerEntity, String> {
-    Flux<TickerEntity> findTop5ByTickerStartsWithIgnoreCase(String ticker);
+    Flux<TickerEntity> findTop5ByTickerStartsWith(String ticker);
 }

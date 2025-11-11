@@ -1,7 +1,13 @@
 spring:
+  main:
+    web-application-type: reactive
   application:
     name: notification-service
   r2dbc:
+    pool:
+      enabled: true
+      max-size: 100
+      max-idle-time: 30s
     url: r2dbc:postgresql://notification-db:5432/notification-db-rx
     username: postgres
     password: postgres
@@ -10,6 +16,11 @@ spring:
     url: jdbc:postgresql://notification-db:5432/notification-db-rx
     user: postgres
     password: postgres
+
+logging:
+  level:
+    reactor:
+      blockhound: DEBUG
 
 server:
   port: 8080

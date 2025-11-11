@@ -20,6 +20,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: company-info-db-rx
+    command: [
+      "postgres",
+      "-c", "max_connections=256",
+      "-c", "shared_buffers=100MB"
+    ]
     networks:
       - stocknet
 
@@ -104,6 +109,10 @@ services:
     environment:
       SPRING_REDIS_HOST: redis-currency
       SPRING_PROFILES_ACTIVE: mock
+      JAVA_TOOL_OPTIONS: "-XX:+AllowRedefinitionToAddDeleteMethods"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
 
@@ -121,6 +130,10 @@ services:
       SPRING_R2DBC_PASSWORD: postgres
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
       SPRING_PROFILES_ACTIVE: mock
+      JAVA_TOOL_OPTIONS: "-XX:+AllowRedefinitionToAddDeleteMethods"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
 
@@ -140,6 +153,10 @@ services:
       SPRING_REDIS_HOST: redis-company
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
       SPRING_PROFILES_ACTIVE: mock
+      JAVA_TOOL_OPTIONS: "-XX:+AllowRedefinitionToAddDeleteMethods"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
 
@@ -155,6 +172,10 @@ services:
       SPRING_DATA_MONGODB_DATABASE: historical-db
       POLYGON_API_KEY: V4_aPjfLf3uRm1v8EO3SRFvJfOM4WtDp
       SPRING_PROFILES_ACTIVE: mock
+      JAVA_TOOL_OPTIONS: "-XX:+AllowRedefinitionToAddDeleteMethods"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
 
@@ -170,6 +191,10 @@ services:
       SPRING_R2DBC_URL: r2dbc:postgresql://notification-db:5432/notification-db-rx
       SPRING_R2DBC_USERNAME: postgres
       SPRING_R2DBC_PASSWORD: postgres
+      JAVA_TOOL_OPTIONS: "-XX:+AllowRedefinitionToAddDeleteMethods"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
 
@@ -186,6 +211,9 @@ services:
       SPRING_PROFILES_ACTIVE: ws-mock
       STOCKS_WS_MOCK: "true"
       MOCK_WS_PERIOD_MS: "10000"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
 
@@ -200,6 +228,10 @@ services:
       - currency-service
       - historical-service
       - stocks-service
+#    environment:
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
+#        -Dreactor.netty.ioWorkerCount=8
     networks:
       - stocknet
   
@@ -222,11 +254,8 @@ services:
     environment:
       BASE_URL: http://api-gateway:8080
       WS_BASE_URL: ws://api-gateway:8080
-      START_CONC: "100"
-      TARGET_CONC: "1600"
-      RAMP_MIN: "3"
-      HOLD_MIN: "60"
-      RAMPDOWN_SEC: "0"
+#      JAVA_TOOL_OPTIONS: >-
+#        -Xms1g -Xmx1g -Xss512k -XX:+UseG1GC -XX:ActiveProcessorCount=8
     command: >
       ./gradlew gatlingRun
       -Dgatling.simulationClass=example.MasterRouteSimulation
@@ -301,10 +330,13 @@ services:
     container_name: wiremock
     profiles: [ "tests" ]
     image: wiremock/wiremock:latest
-    entrypoint: [ "/docker-entrypoint.sh",
-                  "--global-response-templating",
-                  "--verbose",
-                  "--disable-gzip" ]
+    command:
+      - "--global-response-templating"
+      - "--no-request-journal"
+      - "--disable-request-logging"
+      - "--verbose"
+#    environment:
+#      JAVA_OPTS: "-Xms512m -Xmx512m -XX:+UseG1GC"
     volumes:
       - ./mocks/wiremock:/home/wiremock
     ports:

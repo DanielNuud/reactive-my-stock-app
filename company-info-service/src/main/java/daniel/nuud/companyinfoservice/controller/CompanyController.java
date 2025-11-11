@@ -20,22 +20,8 @@ public class CompanyController {
 
     @GetMapping("/{ticker}")
     public Mono<ResponseEntity<Company>> getCompany(@PathVariable String ticker) {
-        log.info("Received GET /api/companies/{}", ticker);
-
-        return companyService.getFromDB(ticker)
-                .onErrorResume(ResourceNotFoundException.class, ex ->
-                        companyService.tryRefreshCompany(ticker)
-                                .onErrorResume(e -> Mono.empty())
-                )
-                .map(ResponseEntity::ok)
-                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
-    }
-
-    @GetMapping("/{ticker}/db")
-    public Mono<ResponseEntity<Company>> getOnlyFromDb(@PathVariable String ticker) {
-        return companyService.getFromDB(ticker)
-                .map(ResponseEntity::ok)
-                .onErrorResume(ResourceNotFoundException.class,
-                        ex -> Mono.just(ResponseEntity.notFound().build()));
+        log.info("GET /api/companies/{}", ticker);
+        return companyService.getOrRefresh(ticker)
+                .map(ResponseEntity::ok);
     }
 }

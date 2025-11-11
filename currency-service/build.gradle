@@ -28,7 +28,7 @@ repositories {
 }
 
 dependencies {
-    runtimeOnly("io.projectreactor.tools:blockhound:1.0.13.RELEASE")
+    implementation 'io.projectreactor.tools:blockhound:1.0.15.RELEASE'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
@@ -41,7 +41,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'io.lettuce:lettuce-core'
     implementation "io.github.resilience4j:resilience4j-spring-boot3:"
-    implementation "org.springframework.boot:spring-boot-starter-actuator"
     implementation "org.springframework.boot:spring-boot-starter-aop"
     implementation "io.github.resilience4j:resilience4j-reactor"
     implementation platform("io.github.resilience4j:resilience4j-bom:2.2.0")

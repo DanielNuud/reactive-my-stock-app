@@ -86,7 +86,9 @@ public class ReactiveWebSocketServerConfig {
                 // подписываемся на новый тикер
                 Disposable d = hub.fluxFor(norm)
                         .map(this::toJson)
-                        .subscribe(json -> outbound.tryEmitNext(json));
+                        .doOnSubscribe(s -> log.info("WS[{}] subscribe {}", userKey, norm))
+                        .doOnNext(json -> log.debug("WS SEND [{}] {} -> {}", userKey, norm, json))
+                        .subscribe(outbound::tryEmitNext);
                 currentStream.set(d);
 
                 log.info("WS[{}]: switched to ticker {}", userKey, norm);

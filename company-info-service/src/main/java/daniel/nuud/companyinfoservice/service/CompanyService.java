@@ -25,12 +25,12 @@ public class CompanyService {
     private final PolygonClient polygonClient;
 
     @SuppressWarnings("unused")
-    private Mono<Boolean> skipRefreshReactive(String ticker, Throwable ex) {
+    public Mono<Company> skipRefreshReactive(String ticker, Throwable ex) {
         log.warn("Skip refresh for {}: {}", ticker, ex.toString());
-        return Mono.just(false);
+        return Mono.empty();
     }
 
-    @Bulkhead(name = "companyWrite", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipRefreshReactive")
+//    @Bulkhead(name = "companyWrite", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipRefreshReactive")
     public Mono<Company> tryRefreshCompany(String ticker) {
         final String key = normalize(ticker);
         return polygonClient.getApiResponse(key)
@@ -39,18 +39,48 @@ public class CompanyService {
                 .doOnSuccess(c -> log.info("Upserted company {}", c.getTicker()));
     }
 
+//    @Cacheable(value = "tickerSuggest", key = "#ticker")
+//    @Bulkhead(name = "companyRead", type = Bulkhead.Type.SEMAPHORE)
+    public Mono<Company> getOrRefresh(String ticker) {
+        final String key = normalize(ticker);
+        return companyRepository.findByTicker(key)
+                .switchIfEmpty(
+                        tryRefreshCompany(key)
+                                .doOnError(e -> log.warn("Refresh failed for {}: {}", key, e.toString()))
+                                .onErrorResume(e -> Mono.empty())
+                );
+    }
+
     private Mono<Company> upsertCompany(Company c) {
         final String sql = """
-            insert into companies
-              (ticker, description, name, homepage_url, primary_exchange, market_cap,
-               city, address1, icon_url, logo_url, status)
-            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            on conflict (ticker) do update set
-              description=$2, name=$3, homepage_url=$4, primary_exchange=$5, market_cap=$6,
-              city=$7, address1=$8, icon_url=$9, logo_url=$10, status=$11
-            returning ticker, description, name, homepage_url, primary_exchange, market_cap,
-                      city, address1, icon_url, logo_url, status
-            """;
+        insert into companies
+          (ticker, description, name, homepage_url, primary_exchange, market_cap,
+           city, address1, icon_url, logo_url, status)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        on conflict (ticker) do update set
+          description       = COALESCE(EXCLUDED.description,      companies.description),
+          name              = COALESCE(EXCLUDED.name,             companies.name),
+          homepage_url      = COALESCE(EXCLUDED.homepage_url,     companies.homepage_url),
+          primary_exchange  = COALESCE(EXCLUDED.primary_exchange, companies.primary_exchange),
+          market_cap        = COALESCE(EXCLUDED.market_cap,       companies.market_cap),
+          city              = COALESCE(EXCLUDED.city,             companies.city),
+          address1          = COALESCE(EXCLUDED.address1,         companies.address1),
+          icon_url          = COALESCE(EXCLUDED.icon_url,         companies.icon_url),
+          logo_url          = COALESCE(EXCLUDED.logo_url,         companies.logo_url),
+          status            = COALESCE(EXCLUDED.status,           companies.status)
+        WHERE
+          companies.description      IS DISTINCT FROM EXCLUDED.description OR
+          companies.name             IS DISTINCT FROM EXCLUDED.name OR
+          companies.homepage_url     IS DISTINCT FROM EXCLUDED.homepage_url OR
+          companies.primary_exchange IS DISTINCT FROM EXCLUDED.primary_exchange OR
+          companies.market_cap       IS DISTINCT FROM EXCLUDED.market_cap OR
+          companies.city             IS DISTINCT FROM EXCLUDED.city OR
+          companies.address1         IS DISTINCT FROM EXCLUDED.address1 OR
+          companies.icon_url         IS DISTINCT FROM EXCLUDED.icon_url OR
+          companies.logo_url         IS DISTINCT FROM EXCLUDED.logo_url OR
+          companies.status           IS DISTINCT FROM EXCLUDED.status
+        """;
+
         return template.getDatabaseClient()
                 .sql(sql)
                 .bind("$1",  c.getTicker())
@@ -64,16 +94,8 @@ public class CompanyService {
                 .bind("$9",  c.getIconUrl())
                 .bind("$10", c.getLogoUrl())
                 .bind("$11", c.getStatus())
-                .map((row, meta) -> template.getConverter().read(Company.class, row, meta))
-                .one();
-    }
-
-    @Cacheable(value = "tickerSuggest", key = "#ticker", sync = true)
-    @Bulkhead(name = "companyRead", type = Bulkhead.Type.SEMAPHORE)
-    public Mono<Company> getFromDB(String ticker) {
-        final String key = normalize(ticker);
-        return companyRepository.findByTickerIgnoreCase(key)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Company with " + ticker + " not found")));
+                .fetch().rowsUpdated()
+                .thenReturn(c);
     }
 
     private Company mapToCompany(ApiResponse response, String key) {

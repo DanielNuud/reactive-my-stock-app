@@ -17,6 +17,7 @@ public class MasterRouteSimulation extends Simulation {
     HttpProtocolBuilder httpProtocol = http
             .baseUrl(BASE_URL)
             .wsBaseUrl(WS_BASE_URL)
+            .shareConnections()
             .acceptHeader("application/json")
             .contentTypeHeader("application/json")
             .userAgentHeader("Gatling-MasterRoute/Java");
@@ -102,52 +103,6 @@ public class MasterRouteSimulation extends Simulation {
         );
     }
 
-    private ChainBuilder wsSubscribeAwaitAndClose =
-            exec(
-                    ws("WS open")
-                            .connect(WS_BASE_URL + "/ws/prices?userKey=#{userKey}")
-                            .header("Origin", BASE_URL)
-                            .header("Cookie", "userKey=#{userKey}")
-            ) 
-                    .exec(
-                            http("POST subscribe (REST)")
-                                    .post("/api/stocks/subscribe/#{ticker}")
-                                    .header("X-User-Key", "#{userKey}")
-                                    .check(status().in(200, 201, 202, 204))
-                    )
-                    .exec(
-                            ws("WS await first price for #{ticker}")
-                                    .sendText("noop")                                  // просто чтобы открыть цепочку
-                                    .await(Duration.ofSeconds(13))
-                                    .on(
-                                            ws.checkTextMessage("first price array")
-                                                    .check(jsonPath("$[0].sym").ofString().transform(String::toUpperCase).is("#{ticker}"))
-                                                    .check(jsonPath("$[0].c").ofDouble().saveAs("wsPrice"))
-                                                    .check(jsonPath("$[0].s").ofLong().saveAs("wsTsStart"))
-                                                    .check(jsonPath("$[0].e").ofLong().saveAs("wsTsEnd"))
-                                    )
-
-                    )
-                    .exec(
-                            http("POST unsubscribe (REST)")
-                                    .post("/api/stocks/unsubscribe/#{ticker}")
-                                    .header("X-User-Key", "#{userKey}")
-                                    .check(status().in(200, 202, 204))
-                    )
-                    .exec(ws("WS close").close());
-
-    int WS_PCT = Integer.parseInt(System.getProperty("WS_PCT",
-            System.getenv().getOrDefault("WS_PCT", "20")));
-
-    private ChainBuilder maybeDoWs =
-            exec(session -> {
-                boolean pick = ThreadLocalRandom.current().nextInt(100) < WS_PCT;
-                return session.set("wsPick", pick);
-            })
-                    .doIf(session -> session.getBoolean("wsPick")).then(
-                            group("WebSocket").on(wsSubscribeAwaitAndClose)
-                    );
-
     ScenarioBuilder scn = scenario("Master user journey")
             .exec(session -> session.set("userKey", "user-" + session.userId()).set("period", "one_week"))
             .exec(chooseTickerOnce)
@@ -162,55 +117,54 @@ public class MasterRouteSimulation extends Simulation {
             .pause(Duration.ofMillis(200), Duration.ofMillis(500))
 
             .group("Notifications").on(notificationsFlow())
-            .pause(Duration.ofMillis(200), Duration.ofMillis(500))
+            .pause(Duration.ofMillis(200), Duration.ofMillis(500));
 
-            .group("WebSocket").on(maybeDoWs)
-            .pause(Duration.ofMillis(300), Duration.ofMillis(800));
     {
-        int START_CONC   = Integer.parseInt(System.getenv().getOrDefault("START_CONC", "10"));
-        int TARGET_CONC  = Integer.parseInt(System.getenv().getOrDefault("TARGET_CONC", "300"));
+        int START_CONC   = Integer.parseInt(System.getenv().getOrDefault("START_CONC", "0"));
+        int TARGET_CONC  = Integer.parseInt(System.getenv().getOrDefault("TARGET_CONC", "1600"));
         int RAMP_MIN     = Integer.parseInt(System.getenv().getOrDefault("RAMP_MIN", "5"));
         int HOLD_MIN     = Integer.parseInt(System.getenv().getOrDefault("HOLD_MIN", "20"));
-        int RAMPDOWN_SEC = Integer.parseInt(System.getenv().getOrDefault("RAMPDOWN_SEC", "30"));
+        int RAMPDOWN_SEC = Integer.parseInt(System.getenv().getOrDefault("RAMPDOWN_SEC", "0"));
 
-//        setUp(
-//                scn.injectClosed(
-//                        // 1. подготовка
-//                        rampConcurrentUsers(0).to(400).during(60),
-//                        constantConcurrentUsers(400).during(60),
-//
-//                        // спайк 1 (жёсткий)
-//                        rampConcurrentUsers(400).to(2200).during(10),
-//                        constantConcurrentUsers(2200).during(45),
-//
-//                        // восстановление
-//                        rampConcurrentUsers(2200).to(400).during(10),
-//                        constantConcurrentUsers(400).during(120),
-//
-//                        // спайк 2 (чуть мягче)
-//                        rampConcurrentUsers(400).to(2000).during(10),
-//                        constantConcurrentUsers(2000).during(45),
-//
-//                        // финальное восстановление
-//                        rampConcurrentUsers(2000).to(400).during(10),
-//                        constantConcurrentUsers(400).during(120)
-//                )
-//        ).protocols(httpProtocol);
+
+        int BASE  = 800;
+        int SPIKE = 2500;
 
         setUp(
                 scn.injectClosed(
-                        rampConcurrentUsers(START_CONC).to(TARGET_CONC).during(Duration.ofMinutes(RAMP_MIN)),
-                        constantConcurrentUsers(TARGET_CONC).during(Duration.ofMinutes(HOLD_MIN)),
-                        rampConcurrentUsers(TARGET_CONC).to(START_CONC).during(Duration.ofSeconds(RAMPDOWN_SEC))
+                        rampConcurrentUsers(0).to(BASE).during(Duration.ofSeconds(60)),
+                        constantConcurrentUsers(BASE).during(Duration.ofSeconds(120)),
+
+                        rampConcurrentUsers(BASE).to(SPIKE).during(Duration.ofSeconds(10)),
+                        constantConcurrentUsers(SPIKE).during(Duration.ofSeconds(180)),
+
+                        rampConcurrentUsers(SPIKE).to(BASE).during(Duration.ofSeconds(10)),
+                        constantConcurrentUsers(BASE).during(Duration.ofSeconds(120))
+
                 )
         )
                 .protocols(httpProtocol)
-                .maxDuration(
-                        Duration.ofMinutes(RAMP_MIN + HOLD_MIN)
-                                .plusSeconds(RAMPDOWN_SEC + 60)
-                )
                 .assertions(
-                        global().responseTime().percentile3().lte(3000)
+                        global().failedRequests().percent().lte(1.0),
+                        global().responseTime().percentile3().lte(550),
+                        global().responseTime().percentile4().lte(900)
                 );
+
+//        setUp(
+//                scn.injectClosed(
+//                        rampConcurrentUsers(START_CONC).to(TARGET_CONC).during(Duration.ofMinutes(RAMP_MIN)),
+//                        constantConcurrentUsers(TARGET_CONC).during(Duration.ofMinutes(HOLD_MIN)),
+//                        rampConcurrentUsers(TARGET_CONC).to(START_CONC).during(Duration.ofSeconds(RAMPDOWN_SEC))
+//                )
+//        )
+//                .protocols(httpProtocol)
+//                .maxDuration(
+//                        Duration.ofMinutes(RAMP_MIN + HOLD_MIN)
+//                                .plusSeconds(RAMPDOWN_SEC + 60)
+//                )
+//                .assertions(
+//                        global().responseTime().percentile3().lte(3000)
+//                );
+
     }
 }

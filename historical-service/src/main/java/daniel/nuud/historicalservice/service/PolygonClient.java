@@ -1,5 +1,6 @@
 package daniel.nuud.historicalservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import daniel.nuud.historicalservice.dto.ApiResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -7,8 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.io.IOException;
 import java.time.LocalDate;
 
 @Component
@@ -17,9 +21,10 @@ import java.time.LocalDate;
 public class PolygonClient {
 
     private final WebClient polygonWebClient;
+    private final ObjectMapper mapper;
 
-    @CircuitBreaker(name = "polygonHistCB", fallbackMethod = "fallbackEmpty")
-    @Retry(name = "readSafe")
+//    @CircuitBreaker(name = "polygonHistCB", fallbackMethod = "fallbackEmpty")
+//    @Retry(name = "readSafe")
     public Mono<ApiResponse> getAggregates(String ticker, String multiplier, String timespan, LocalDate from, LocalDate to, String apiKey) {
 
         String path = "/v2/aggs/ticker/%s/range/%s/%s/%s/%s".formatted(
@@ -34,7 +39,11 @@ public class PolygonClient {
                         .queryParam("apiKey", apiKey)
                         .build())
                 .retrieve()
-                .bodyToMono(ApiResponse.class)
+                .bodyToMono(byte[].class)
+                .flatMap(bytes ->
+                        Mono.fromCallable(() -> mapper.readValue(bytes, ApiResponse.class))
+                                .subscribeOn(Schedulers.boundedElastic())
+                )
                 .doOnError(e -> log.warn("Polygon historical error for {}: {}", ticker, e.toString()));
     }
 

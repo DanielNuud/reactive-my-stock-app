@@ -1,5 +1,6 @@
 package daniel.nuud.companyinfoservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import daniel.nuud.companyinfoservice.dto.ApiResponse;
 import daniel.nuud.companyinfoservice.dto.TickerApiResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.Locale;
 
@@ -20,12 +22,13 @@ import java.util.Locale;
 public class PolygonClient {
 
     private final WebClient polygonWebClient;
+    private ObjectMapper mapper = new ObjectMapper();
 
     @Value("${polygon.api.key}")
     private String apiKey;
 
-    @CircuitBreaker(name = "polygonCompanyCB", fallbackMethod = "fallbackEmpty")
-    @Retry(name = "readSafe")
+//    @CircuitBreaker(name = "polygonCompanyCB", fallbackMethod = "fallbackEmpty")
+//    @Retry(name = "readSafe")
     public Mono<ApiResponse> getApiResponse(String ticker) {
         log.info(">>> fetchCompany called for {}", ticker);
         String t = getString(ticker);
@@ -36,15 +39,15 @@ public class PolygonClient {
                         .queryParam("apiKey", apiKey)
                         .build(t))
                 .retrieve()
-                .onStatus(HttpStatusCode::isError, resp ->
-                        resp.bodyToMono(String.class).defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(new IllegalStateException(
-                                        "Polygon error " + resp.statusCode() + " " + body))))
-                .bodyToMono(ApiResponse.class);
+                .bodyToMono(byte[].class)
+                .flatMap(bytes ->
+                        Mono.fromCallable(() -> mapper.readValue(bytes, ApiResponse.class))
+                                .subscribeOn(Schedulers.boundedElastic())
+                );
     }
 
-    @CircuitBreaker(name = "polygonCompanyCB", fallbackMethod = "fallbackEmptyTickers")
-    @Retry(name = "readSafe")
+//    @CircuitBreaker(name = "polygonCompanyCB", fallbackMethod = "fallbackEmptyTickers")
+//    @Retry(name = "readSafe")
     public Mono<TickerApiResponse> searchTickers(String query) {
         String q = getString(query);
         log.info("Tickers search q='{}'", query);
@@ -55,7 +58,11 @@ public class PolygonClient {
                         .queryParam("apiKey", apiKey)
                         .build())
                 .retrieve()
-                .bodyToMono(TickerApiResponse.class);
+                .bodyToMono(byte[].class)
+                .flatMap(bytes ->
+                        Mono.fromCallable(() -> mapper.readValue(bytes, TickerApiResponse.class))
+                                .subscribeOn(Schedulers.boundedElastic())
+                );
     }
 
     private static String getString(String query) {
@@ -64,13 +71,13 @@ public class PolygonClient {
     }
 
     @SuppressWarnings("unused")
-    private Mono<TickerApiResponse> fallbackEmptyTickers(String query, Throwable ex) {
+    public Mono<TickerApiResponse> fallbackEmptyTickers(String query, Throwable ex) {
         log.warn("Polygon fallback for search '{}': {}", query, ex.toString());
         return Mono.empty();
     }
 
     @SuppressWarnings("unused")
-    private Mono<ApiResponse> fallbackEmpty(String ticker, Throwable ex) {
+    public Mono<ApiResponse> fallbackEmpty(String ticker, Throwable ex) {
         log.warn("Polygon fallback for company {}: {}", ticker, ex.toString());
         return Mono.empty();
     }

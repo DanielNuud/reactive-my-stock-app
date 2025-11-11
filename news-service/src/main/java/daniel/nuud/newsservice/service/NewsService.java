@@ -5,9 +5,13 @@ import daniel.nuud.newsservice.exception.ResourceNotFoundException;
 import daniel.nuud.newsservice.model.Article;
 import daniel.nuud.newsservice.repository.NewsRepository;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.r2dbc.spi.Result;
+import io.r2dbc.spi.Statement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.lang.Nullable;
+import org.springframework.r2dbc.core.Parameter;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -26,65 +30,124 @@ public class NewsService {
     private final NewsRepository newsRepository;
     private final R2dbcEntityTemplate r2dbcEntityTemplate;
 
-    private Mono<Boolean> skipRefreshReactive(String ticker, Throwable ex) {
+    public Mono<Boolean> skipRefreshReactive(String ticker, Throwable ex) {
         log.warn("Skip news refresh for {}: {}", ticker, ex.toString());
         return Mono.just(false);
     }
 
-    @Bulkhead(name = "newsWrite", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipRefreshReactive")
-    public Mono<Boolean> tryRefreshNews(String rawTicker) {
-        final String ticker = normalize(rawTicker);
+//    @Bulkhead(name = "newsWrite", type = Bulkhead.Type.SEMAPHORE, fallbackMethod = "skipRefreshReactive")
+public Mono<Boolean> tryRefreshNews(String rawTicker) {
+    final String ticker = normalize(rawTicker);
 
-        return polygonClient.getApiResponse(ticker)
-                .map(resp -> resp.getResults() == null ? List.<ApiArticle>of() : resp.getResults())
-                .flatMap(list -> {
-                    if (list.isEmpty()) return Mono.just(false);
+    return polygonClient.getApiResponse(ticker)
+            .map(resp -> resp.getResults() == null ? List.<ApiArticle>of() : resp.getResults())
+            .flatMap(list -> {
+                if (list.isEmpty()) return Mono.just(false);
 
-                    return Flux.fromIterable(list)
-                            .map(api -> toEntity(api, ticker))
-                            .concatMap(this::upsertArticle)
-                            .then(Mono.just(true));
-                })
-                .onErrorReturn(false);
-    }
+                return Flux.fromIterable(list)
+                        .map(api -> toEntity(api, ticker))
+                        .buffer(100)
+                        .concatMap(this::upsertBatch)
+                        .reduce(0, Integer::sum)
+                        .map(total -> total > 0);
+            });
+}
 
-    private Mono<Article> upsertArticle(Article a) {
-        final String sql = """
-            insert into articles
+private Mono<Integer> upsertBatch(List<Article> batch) {
+    if (batch.isEmpty()) return Mono.just(0);
+
+    StringBuilder sb = new StringBuilder("""
+            INSERT INTO articles
               (title, author, description, article_url, image_url,
                published_utc, publisher_name, publisher_logo_url,
                publisher_homepage_url, publisher_favicon_url, tickers)
-            values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            on conflict (article_url) do update set
-              title                  = excluded.title,
-              author                 = excluded.author,
-              description            = excluded.description,
-              image_url              = excluded.image_url,
-              published_utc          = excluded.published_utc,
-              publisher_name         = excluded.publisher_name,
-              publisher_logo_url     = excluded.publisher_logo_url,
-              publisher_homepage_url = excluded.publisher_homepage_url,
-              publisher_favicon_url  = excluded.publisher_favicon_url,
-              tickers                = excluded.tickers
-            returning id, title, author, description, article_url, image_url,
-                      published_utc, publisher_name, publisher_logo_url,
-                      publisher_homepage_url, publisher_favicon_url, tickers
-            """;
-        return r2dbcEntityTemplate.getDatabaseClient()
-                .sql(sql)
-                .bind("$1",  a.getTitle())
-                .bind("$2",  a.getAuthor())
-                .bind("$3",  a.getDescription())
-                .bind("$4",  a.getArticleUrl())
-                .bind("$5",  a.getImageUrl())
-                .bind("$6",  a.getPublishedUtc())
-                .bind("$7",  a.getPublisherName())
-                .bind("$8",  a.getPublisherLogoUrl())
-                .bind("$9",  a.getPublisherHomepageUrl())
-                .bind("$10", a.getPublisherFaviconUrl())
-                .bind("$11", a.getTickers())
-                .map((row, md) -> r2dbcEntityTemplate.getConverter().read(Article.class, row, md))
-                .one();
+            VALUES
+            """);
+
+    for (int i = 0; i < batch.size(); i++) {
+        if (i > 0) sb.append(',');
+        int p = i * 11;
+        sb.append("(")
+                .append("$").append(p + 1).append(",")
+                .append("$").append(p + 2).append(",")
+                .append("$").append(p + 3).append(",")
+                .append("$").append(p + 4).append(",")
+                .append("$").append(p + 5).append(",")
+                .append("$").append(p + 6).append(",")
+                .append("$").append(p + 7).append(",")
+                .append("$").append(p + 8).append(",")
+                .append("$").append(p + 9).append(",")
+                .append("$").append(p +10).append(",")
+                .append("$").append(p +11).append(")");
+    }
+
+    sb.append("""
+  ON CONFLICT (article_url) DO UPDATE SET
+    title                  = EXCLUDED.title,
+    author                 = EXCLUDED.author,
+    description            = EXCLUDED.description,
+    image_url              = EXCLUDED.image_url,
+    published_utc          = EXCLUDED.published_utc,
+    publisher_name         = EXCLUDED.publisher_name,
+    publisher_logo_url     = EXCLUDED.publisher_logo_url,
+    publisher_homepage_url = EXCLUDED.publisher_homepage_url,
+    publisher_favicon_url  = EXCLUDED.publisher_favicon_url,
+    tickers                = EXCLUDED.tickers
+  WHERE
+    (articles.title,
+     articles.author,
+     articles.description,
+     articles.image_url,
+     articles.published_utc,
+     articles.publisher_name,
+     articles.publisher_logo_url,
+     articles.publisher_homepage_url,
+     articles.publisher_favicon_url,
+     articles.tickers)
+  IS DISTINCT FROM
+    (EXCLUDED.title,
+     EXCLUDED.author,
+     EXCLUDED.description,
+     EXCLUDED.image_url,
+     EXCLUDED.published_utc,
+     EXCLUDED.publisher_name,
+     EXCLUDED.publisher_logo_url,
+     EXCLUDED.publisher_homepage_url,
+     EXCLUDED.publisher_favicon_url,
+     EXCLUDED.tickers)
+""");
+
+    String sql = sb.toString();
+
+    return r2dbcEntityTemplate.getDatabaseClient()
+            .inConnectionMany(conn -> {
+                Statement st = conn.createStatement(sql);
+                int idx = 0;
+                for (Article a : batch) {
+                    bindNullable(st, idx++, a.getTitle(),                String.class);
+                    bindNullable(st, idx++, a.getAuthor(),               String.class);
+                    bindNullable(st, idx++, a.getDescription(),          String.class);
+                    bindNullable(st, idx++, a.getArticleUrl(),           String.class);
+                    bindNullable(st, idx++, a.getImageUrl(),             String.class);
+                    bindNullable(st, idx++, a.getPublishedUtc(), java.time.Instant.class);
+                    bindNullable(st, idx++, a.getPublisherName(),        String.class);
+                    bindNullable(st, idx++, a.getPublisherLogoUrl(),     String.class);
+                    bindNullable(st, idx++, a.getPublisherHomepageUrl(), String.class);
+                    bindNullable(st, idx++, a.getPublisherFaviconUrl(),  String.class);
+                    bindNullable(st, idx++, a.getTickers(),              String[].class);
+                }
+                return Flux.from(st.execute()).flatMap(Result::getRowsUpdated);
+            })
+            .reduce(0L, Long::sum)
+            .map(Long::intValue);
+}
+
+    private static <T> void bindNullable(Statement st, int index, @Nullable T value, Class<T> type) {
+        if (value == null) {
+            st.bindNull(index, type);
+        } else {
+            st.bind(index, value);
+        }
     }
 
     public Mono<List<Article>> getTop5NewsByTicker(String rawTicker) {
